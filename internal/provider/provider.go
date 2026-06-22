@@ -127,5 +127,9 @@ func (p *AltertableProvider) Resources(_ context.Context) []func() resource.Reso
 }
 
 func (p *AltertableProvider) DataSources(_ context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{}
+	return []func() datasource.DataSource{
+		NewEnvironmentDataSource,
+		NewCatalogDataSource,
+		NewUserDataSource,
+	}
 }
