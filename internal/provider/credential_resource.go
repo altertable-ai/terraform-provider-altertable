@@ -141,6 +141,14 @@ func (r *CredentialResource) Update(ctx context.Context, req resource.UpdateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Preserve the write-once password: the API never returns it, so carry the
+	// value from prior state instead of relying implicitly on UseStateForUnknown.
+	var state credentialResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.Password = state.Password
 	cred, err := r.client.UpdateCredential(ctx, plan.ID.ValueString(), client.CredentialUpdateInput{
 		Label: plan.Label.ValueString(),
 	})
