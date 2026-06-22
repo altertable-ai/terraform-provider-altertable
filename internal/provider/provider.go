@@ -131,5 +131,7 @@ func (p *AltertableProvider) DataSources(_ context.Context) []func() datasource.
 		NewEnvironmentDataSource,
 		NewCatalogDataSource,
 		NewUserDataSource,
+		NewServiceAccountDataSource,
+		NewCredentialDataSource,
 	}
 }
