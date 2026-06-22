@@ -1,0 +1,19 @@
+# Local planning artifacts (brainstorming spec / implementation plan) — not part of the provider
+docs/superpowers/
+
+# Built provider binary
+terraform-provider-altertable
+dist/
+
+# Terraform working files
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Go
+*.test
+*.out
+vendor/
