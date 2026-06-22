@@ -121,6 +121,7 @@ func (p *AltertableProvider) Resources(_ context.Context) []func() resource.Reso
 		NewCatalogResource,
 		NewUserResource,
 		NewServiceAccountResource,
+		NewRoleSetResource,
 	}
 }
 
