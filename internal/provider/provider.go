@@ -118,6 +118,7 @@ func (p *AltertableProvider) Configure(ctx context.Context, req provider.Configu
 func (p *AltertableProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewEnvironmentResource,
+		NewCatalogResource,
 	}
 }
 
