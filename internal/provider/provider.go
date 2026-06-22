@@ -119,6 +119,7 @@ func (p *AltertableProvider) Resources(_ context.Context) []func() resource.Reso
 	return []func() resource.Resource{
 		NewEnvironmentResource,
 		NewCatalogResource,
+		NewUserResource,
 	}
 }
 
