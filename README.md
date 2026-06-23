@@ -9,7 +9,7 @@ Manage [Altertable](https://altertable.com) (lakehouse) resources with Terraform
 ## Requirements
 
 - Terraform >= 1.0 (or OpenTofu)
-- Go >= 1.24 (to build)
+- Go >= 1.25 (to build)
 
 ## Provider configuration
 
