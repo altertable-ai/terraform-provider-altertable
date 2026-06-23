@@ -1,6 +1,6 @@
 module github.com/altertable/terraform-provider-altertable
 
-go 1.25
+go 1.25.8
 
 require (
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
