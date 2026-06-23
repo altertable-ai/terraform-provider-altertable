@@ -13,12 +13,11 @@ import (
 )
 
 // DefaultBaseURL is used when neither provider config nor ALTERTABLE_API_URL is set.
-const DefaultBaseURL = "https://api.altertable.com"
+const DefaultBaseURL = "https://app.altertable.ai"
 
 // ErrNotImplemented is returned by every entity method until the REST API is wired up.
 var ErrNotImplemented = errors.New("altertable: client method not implemented")
 
-// Client talks to the Altertable management API.
 type Client struct {
 	httpClient *http.Client
 	baseURL    string
@@ -26,17 +25,15 @@ type Client struct {
 	userAgent  string
 }
 
-// NewClient builds a Client. baseURL has any trailing slash trimmed.
-func NewClient(baseURL, apiKey string) *Client {
+func NewClient(baseURL, apiKey, version string) *Client {
 	return &Client{
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		apiKey:     apiKey,
-		userAgent:  "terraform-provider-altertable",
+		userAgent:  "terraform-provider-altertable/" + version,
 	}
 }
 
-// APIError is returned for any non-2xx response.
 type APIError struct {
 	StatusCode int
 	Message    string
@@ -49,8 +46,6 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("altertable API error: status %d: %s", e.StatusCode, e.Message)
 }
 
-// doRequest performs an authenticated JSON request. If body is non-nil it is JSON-encoded;
-// if out is non-nil a 2xx response body is decoded into it.
 func (c *Client) doRequest(ctx context.Context, method, path string, body, out any) error {
 	var reader io.Reader
 	if body != nil {

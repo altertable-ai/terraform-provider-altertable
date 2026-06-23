@@ -19,22 +19,18 @@ const (
 	envBaseURL = "ALTERTABLE_API_URL"
 )
 
-// Ensure AltertableProvider satisfies the provider.Provider interface.
 var _ provider.Provider = (*AltertableProvider)(nil)
 
-// AltertableProvider is the provider implementation.
 type AltertableProvider struct {
 	version string
 }
 
-// New returns a provider factory bound to a build version.
 func New(version string) func() provider.Provider {
 	return func() provider.Provider {
 		return &AltertableProvider{version: version}
 	}
 }
 
-// AltertableProviderModel maps provider configuration.
 type AltertableProviderModel struct {
 	APIKey  types.String `tfsdk:"api_key"`
 	BaseURL types.String `tfsdk:"base_url"`
@@ -47,7 +43,7 @@ func (p *AltertableProvider) Metadata(_ context.Context, _ provider.MetadataRequ
 
 func (p *AltertableProvider) Schema(_ context.Context, _ provider.SchemaRequest, resp *provider.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Manage Altertable lakehouse resources.",
+		MarkdownDescription: "Manage Altertable resources.",
 		Attributes: map[string]schema.Attribute{
 			"api_key": schema.StringAttribute{
 				MarkdownDescription: "Altertable management API key. May also be set with the `" + envAPIKey + "` environment variable.",
@@ -62,7 +58,6 @@ func (p *AltertableProvider) Schema(_ context.Context, _ provider.SchemaRequest,
 	}
 }
 
-// resolveConfig applies config-over-env-over-default precedence and validates api_key presence.
 func resolveConfig(apiKeyCfg, baseURLCfg types.String) (apiKey, baseURL string, diags diag.Diagnostics) {
 	apiKey = os.Getenv(envAPIKey)
 	if !apiKeyCfg.IsNull() {
@@ -110,7 +105,7 @@ func (p *AltertableProvider) Configure(ctx context.Context, req provider.Configu
 		return
 	}
 
-	c := client.NewClient(baseURL, apiKey)
+	c := client.NewClient(baseURL, apiKey, p.version)
 	resp.DataSourceData = c
 	resp.ResourceData = c
 }

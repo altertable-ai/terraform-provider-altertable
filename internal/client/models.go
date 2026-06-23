@@ -1,6 +1,5 @@
 package client
 
-// Environment models an Altertable environment.
 type Environment struct {
 	ID   string `json:"id"`
 	Slug string `json:"slug"`
@@ -16,7 +15,6 @@ type EnvironmentUpdateInput struct {
 	Name string `json:"name"`
 }
 
-// Catalog models a catalog within an environment.
 type Catalog struct {
 	ID            string `json:"id"`
 	EnvironmentID string `json:"environment_id"`
@@ -34,7 +32,6 @@ type CatalogUpdateInput struct {
 	Name string `json:"name"`
 }
 
-// User models an Altertable user.
 type User struct {
 	ID    string `json:"id"`
 	Email string `json:"email"`
@@ -50,7 +47,6 @@ type UserUpdateInput struct {
 	Name string `json:"name"`
 }
 
-// ServiceAccount models a machine identity.
 type ServiceAccount struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -64,25 +60,23 @@ type ServiceAccountUpdateInput struct {
 	Name string `json:"name"`
 }
 
-// RoleGrant is a single (role, optional resource) tuple.
 type RoleGrant struct {
 	Role       string `json:"role"`
 	ResourceID string `json:"resource_id,omitempty"`
 }
 
-// PrincipalRef identifies the principal a role set belongs to; exactly one field is set.
+// Exactly one of UserID or ServiceAccountID is set.
 type PrincipalRef struct {
 	UserID           string `json:"user_id,omitempty"`
 	ServiceAccountID string `json:"service_account_id,omitempty"`
 }
 
-// RoleSet is the complete set of grants for a principal.
 type RoleSet struct {
 	PrincipalID string      `json:"principal_id"`
 	Grants      []RoleGrant `json:"grants"`
 }
 
-// Credential models an environment credential. Password is only populated on create.
+// Password is only populated on create.
 type Credential struct {
 	ID               string `json:"id"`
 	ServiceAccountID string `json:"service_account_id"`

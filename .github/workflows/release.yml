@@ -1,7 +1,8 @@
 name: Release
+# Manual only: trigger from the Actions tab and select a vX.Y.Z tag as the ref
+# so goreleaser derives the version from it.
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write

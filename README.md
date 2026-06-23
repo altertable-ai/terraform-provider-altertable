@@ -1,6 +1,6 @@
 # Terraform Provider for Altertable
 
-Manage [Altertable](https://altertable.com) (lakehouse) resources with Terraform.
+Manage [Altertable](https://altertable.ai) resources with Terraform.
 
 > **Status:** scaffold. The provider builds and validates, but resource/data-source
 > operations return "not implemented" until the Altertable management API and the
@@ -15,8 +15,7 @@ Manage [Altertable](https://altertable.com) (lakehouse) resources with Terraform
 
 ```hcl
 provider "altertable" {
-  api_key  = var.altertable_management_api_key # or env ALTERTABLE_API_KEY
-  base_url = "https://api.altertable.com"       # or env ALTERTABLE_API_URL
+  api_key = var.altertable_management_api_key # or env ALTERTABLE_API_KEY
 }
 ```
 
