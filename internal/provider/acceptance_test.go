@@ -1,0 +1,148 @@
+package provider
+
+import (
+	"testing"
+
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+)
+
+// These acceptance tests run only when TF_ACC is set and the Altertable API plus the
+// client methods in internal/client are implemented. resource.Test skips otherwise.
+
+func TestAccEnvironmentResource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `resource "altertable_environment" "test" {
+  slug = "acctest"
+  name = "Acc Test"
+}`,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttrSet("altertable_environment.test", "id"),
+				resource.TestCheckResourceAttr("altertable_environment.test", "slug", "acctest"),
+			),
+		}},
+	})
+}
+
+func TestAccCatalogResource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `resource "altertable_environment" "test" {
+  slug = "acctest"
+  name = "Acc Test"
+}
+
+resource "altertable_catalog" "test" {
+  environment_id = altertable_environment.test.id
+  slug           = "acctest-catalog"
+  name           = "Acc Test Catalog"
+}`,
+			Check: resource.TestCheckResourceAttrSet("altertable_catalog.test", "id"),
+		}},
+	})
+}
+
+func TestAccUserResource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `resource "altertable_user" "test" {
+  email = "acctest@example.com"
+  name  = "Acc Test"
+}`,
+			Check: resource.TestCheckResourceAttrSet("altertable_user.test", "id"),
+		}},
+	})
+}
+
+func TestAccServiceAccountResource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `resource "altertable_service_account" "test" {
+  name = "acc-test-sa"
+}`,
+			Check: resource.TestCheckResourceAttrSet("altertable_service_account.test", "id"),
+		}},
+	})
+}
+
+func TestAccRoleSetResource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `resource "altertable_service_account" "test" {
+  name = "acc-test-sa"
+}
+
+resource "altertable_role_set" "test" {
+  service_account_id = altertable_service_account.test.id
+
+  roles = [
+    { role = "organization:member" },
+  ]
+}`,
+			Check: resource.TestCheckResourceAttrSet("altertable_role_set.test", "id"),
+		}},
+	})
+}
+
+func TestAccCredentialResource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `resource "altertable_environment" "test" {
+  slug = "acctest"
+  name = "Acc Test"
+}
+
+resource "altertable_service_account" "test" {
+  name = "acc-test-sa"
+}
+
+resource "altertable_credential" "test" {
+  service_account_id = altertable_service_account.test.id
+  environment_id     = altertable_environment.test.id
+  label              = "acc-test"
+}`,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttrSet("altertable_credential.test", "id"),
+				resource.TestCheckResourceAttrSet("altertable_credential.test", "password"),
+			),
+		}},
+	})
+}
+
+func TestAccEnvironmentDataSource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `data "altertable_environment" "test" {
+  slug = "production"
+}`,
+			Check: resource.TestCheckResourceAttrSet("data.altertable_environment.test", "id"),
+		}},
+	})
+}
+
+func TestAccServiceAccountDataSource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `data "altertable_service_account" "test" {
+  name = "dbt Cloud"
+}`,
+			Check: resource.TestCheckResourceAttrSet("data.altertable_service_account.test", "id"),
+		}},
+	})
+}
