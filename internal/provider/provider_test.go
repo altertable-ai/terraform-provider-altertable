@@ -19,6 +19,13 @@ func testAccPreCheck(t *testing.T) {
 	if os.Getenv("ALTERTABLE_API_KEY") == "" {
 		t.Fatal("ALTERTABLE_API_KEY must be set for acceptance tests")
 	}
+	apiURL := os.Getenv("ALTERTABLE_API_URL")
+	if apiURL == "" {
+		t.Fatal("ALTERTABLE_API_URL must be set for acceptance tests; leaving it unset would target the production default")
+	}
+	if apiURL == client.DefaultBaseURL {
+		t.Fatalf("ALTERTABLE_API_URL must not be the production endpoint %s; point acceptance tests at a non-production instance", client.DefaultBaseURL)
+	}
 }
 
 func TestProviderSchemaValid(t *testing.T) {
