@@ -3,20 +3,21 @@
 page_title: "altertable_credential Resource - altertable"
 subcategory: ""
 description: |-
-  A credential for a service account in an environment. The password is returned only on creation.
+  A login credential for a user or service account in an environment. Credentials are immutable; the password is returned only at creation.
 ---
 
 # altertable_credential (Resource)
 
-A credential for a service account in an environment. The password is returned only on creation.
+A login credential for a user or service account in an environment. Credentials are immutable; the password is returned only at creation.
 
 ## Example Usage
 
 ```terraform
-resource "altertable_credential" "dbt_prod" {
-  service_account_id = altertable_service_account.dbt.id
-  environment_id     = altertable_environment.production.id
-  label              = "dbt Postgres"
+resource "altertable_credential" "ci" {
+  principal_type = "service_account"
+  principal_id   = altertable_service_account.example.id
+  environment_id = altertable_environment.example.id
+  label          = "CI"
 }
 ```
 
@@ -26,11 +27,21 @@ resource "altertable_credential" "dbt_prod" {
 ### Required
 
 - `environment_id` (String) Environment the credential grants access to. Changing this forces a new credential.
-- `label` (String) Human-readable label for the credential.
-- `service_account_id` (String) Service account the credential belongs to. Changing this forces a new credential.
+- `principal_id` (String) ID of the user or service account. Changing this forces a new credential.
+- `principal_type` (String) Principal type: `user` or `service_account`. Changing this forces a new credential.
+
+### Optional
+
+- `label` (String) Human-readable label. Immutable; changing it requires recreating the credential.
 
 ### Read-Only
 
+- `active` (Boolean) Whether the credential is active.
+- `created_at` (String) Creation timestamp.
+- `default` (Boolean) Whether this is the principal's default credential.
+- `expires_at` (String) Expiry timestamp, if any.
 - `id` (String) Credential identifier.
-- `password` (String, Sensitive) Generated password. Only available at creation time; never re-read from the API.
+- `last_rotated_at` (String) Last rotation timestamp, if any.
+- `password` (String, Sensitive) Generated password. Available only at creation; never re-read from the API.
+- `revoked_at` (String) Revocation timestamp, if any.
 - `username` (String) Generated username.

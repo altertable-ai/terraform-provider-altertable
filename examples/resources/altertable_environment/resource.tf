@@ -1,4 +1,5 @@
-resource "altertable_environment" "production" {
-  slug = "production"
-  name = "Production"
+resource "altertable_environment" "example" {
+  name           = "Production"
+  cloud_provider = "aws"
+  # cloud_provider_region = "eu-west-1"
 }

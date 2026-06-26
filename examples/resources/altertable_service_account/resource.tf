@@ -1,3 +1,3 @@
-resource "altertable_service_account" "dbt" {
-  name = "dbt Cloud"
+resource "altertable_service_account" "example" {
+  label = "CI Deploy"
 }

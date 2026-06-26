@@ -1,5 +1,6 @@
-resource "altertable_credential" "dbt_prod" {
-  service_account_id = altertable_service_account.dbt.id
-  environment_id     = altertable_environment.production.id
-  label              = "dbt Postgres"
+resource "altertable_credential" "ci" {
+  principal_type = "service_account"
+  principal_id   = altertable_service_account.example.id
+  environment_id = altertable_environment.example.id
+  label          = "CI"
 }

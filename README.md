@@ -2,9 +2,10 @@
 
 Manage [Altertable](https://altertable.ai) resources with Terraform.
 
-> **Status:** scaffold. The provider builds and validates, but resource/data-source
-> operations return "not implemented" until the Altertable management API and the
-> client methods in `internal/client/` are completed.
+> **Status:** The provider implements environments, service accounts, catalogs
+> (databases and connections), and credentials against the Altertable Management
+> REST API. The `altertable_user` and `altertable_role_set` resources are not yet
+> implemented (their API endpoints are forthcoming).
 
 ## Requirements
 

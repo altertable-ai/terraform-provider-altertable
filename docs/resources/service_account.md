@@ -13,8 +13,8 @@ An Altertable service account (machine identity).
 ## Example Usage
 
 ```terraform
-resource "altertable_service_account" "dbt" {
-  name = "dbt Cloud"
+resource "altertable_service_account" "example" {
+  label = "CI Deploy"
 }
 ```
 
@@ -23,8 +23,9 @@ resource "altertable_service_account" "dbt" {
 
 ### Required
 
-- `name` (String) Service account display name.
+- `label` (String) Service account label.
 
 ### Read-Only
 
 - `id` (String) Service account identifier.
+- `slug` (String) URL-safe service account slug (server-assigned).

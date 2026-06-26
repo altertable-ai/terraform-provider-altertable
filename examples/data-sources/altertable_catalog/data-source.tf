@@ -1,4 +1,4 @@
-data "altertable_catalog" "analytics" {
-  environment_id = data.altertable_environment.production.id
-  slug           = "analytics"
+data "altertable_catalog" "warehouse" {
+  environment_id = altertable_environment.production.id
+  id             = "warehouse"
 }

@@ -3,19 +3,20 @@
 page_title: "altertable_environment Resource - altertable"
 subcategory: ""
 description: |-
-  An Altertable environment.
+  An Altertable environment. Environments are immutable: every attribute change forces a new environment.
 ---
 
 # altertable_environment (Resource)
 
-An Altertable environment.
+An Altertable environment. Environments are immutable: every attribute change forces a new environment.
 
 ## Example Usage
 
 ```terraform
-resource "altertable_environment" "production" {
-  slug = "production"
-  name = "Production"
+resource "altertable_environment" "example" {
+  name           = "Production"
+  cloud_provider = "aws"
+  # cloud_provider_region = "eu-west-1"
 }
 ```
 
@@ -24,9 +25,16 @@ resource "altertable_environment" "production" {
 
 ### Required
 
-- `name` (String) Human-readable environment name.
-- `slug` (String) URL-safe environment slug. Changing this forces a new environment.
+- `cloud_provider` (String) Cloud provider: `hetzner` or `aws`. Changing this forces a new environment.
+- `name` (String) Human-readable environment name. Changing this forces a new environment.
+
+### Optional
+
+- `cloud_provider_region` (String) Region within the cloud provider (e.g. `fsn1` for hetzner, `eu-west-1` for aws). Changing this forces a new environment.
 
 ### Read-Only
 
+- `created_at` (String) Creation timestamp.
 - `id` (String) Environment identifier.
+- `slug` (String) URL-safe environment slug (server-assigned).
+- `updated_at` (String) Last update timestamp.

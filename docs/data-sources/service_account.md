@@ -3,18 +3,18 @@
 page_title: "altertable_service_account Data Source - altertable"
 subcategory: ""
 description: |-
-  Look up a service account by name.
+  Look up a service account by ID.
 ---
 
 # altertable_service_account (Data Source)
 
-Look up a service account by name.
+Look up a service account by ID.
 
 ## Example Usage
 
 ```terraform
-data "altertable_service_account" "dbt" {
-  name = "dbt Cloud"
+data "altertable_service_account" "ci" {
+  id = "019d7223-796e-7917-8d7e-ca256daa7979"
 }
 ```
 
@@ -23,8 +23,9 @@ data "altertable_service_account" "dbt" {
 
 ### Required
 
-- `name` (String) Service account name to look up.
+- `id` (String) Service account ID to look up.
 
 ### Read-Only
 
-- `id` (String) Service account identifier.
+- `label` (String) Service account label.
+- `slug` (String) Service account slug.
