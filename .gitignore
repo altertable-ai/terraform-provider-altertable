@@ -1,5 +1,6 @@
 # Local planning artifacts (brainstorming spec / implementation plan) — not part of the provider
 docs/superpowers/
+.superpowers/
 
 # Built provider binary
 terraform-provider-altertable
