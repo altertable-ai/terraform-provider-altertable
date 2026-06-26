@@ -36,6 +36,27 @@ func TestApplyDatabasePopulatesCommonAndDBFields(t *testing.T) {
 	}
 }
 
+func TestApplyConnectionSetsKnownDBOnlyFields(t *testing.T) {
+	m := &catalogResourceModel{
+		BuiltIn:               types.BoolUnknown(),
+		BucketID:              types.StringUnknown(),
+		SnapshotRetentionDays: types.Int64Unknown(),
+	}
+	m.applyConnection(&client.Connection{ID: "con_1", Name: "PG", Slug: "pg", Engine: "postgres"})
+	if m.BuiltIn.IsUnknown() || m.BuiltIn.ValueBool() {
+		t.Errorf("built_in = %v, want known false", m.BuiltIn)
+	}
+	if !m.BucketID.IsNull() {
+		t.Errorf("bucket_id = %v, want null", m.BucketID)
+	}
+	if !m.SnapshotRetentionDays.IsNull() {
+		t.Errorf("snapshot_retention_days = %v, want null", m.SnapshotRetentionDays)
+	}
+	if m.Engine.ValueString() != "postgres" {
+		t.Errorf("engine = %q", m.Engine.ValueString())
+	}
+}
+
 func TestToCreateConnectionRequestMapsPostgresConfig(t *testing.T) {
 	m := &catalogResourceModel{
 		Name:   types.StringValue("PG"),

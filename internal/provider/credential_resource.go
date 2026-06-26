@@ -126,9 +126,9 @@ func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest,
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
-// Update is never reached for label-only changes (label uses UseStateForUnknown and
-// the API has no update endpoint). It exists to satisfy the interface and to fail
-// loudly if Terraform ever routes an in-place change here.
+// Update always hard-errors because credentials are immutable — the API has no
+// update endpoint. Any change (including a label edit) must recreate the resource
+// (taint it). This method exists solely to satisfy the resource.Resource interface.
 func (r *CredentialResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError(
 		"Credentials are immutable",

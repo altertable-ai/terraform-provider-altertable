@@ -322,4 +322,10 @@ func (m *catalogResourceModel) applyConnection(con *client.Connection) {
 	m.UpdatedAt = types.StringValue(con.UpdatedAt)
 	// Connection config blocks are write-only; the API never returns them, so they
 	// are NOT touched here — the caller preserves them from prior state.
+
+	// Database-only fields are not applicable to connections; set them to known
+	// values so Terraform does not treat them as unknown after apply.
+	m.BuiltIn = types.BoolValue(false)
+	m.BucketID = types.StringNull()
+	m.SnapshotRetentionDays = types.Int64Null()
 }

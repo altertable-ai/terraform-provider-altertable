@@ -79,7 +79,7 @@ func TestAccRoleSetResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{{
 			Config: `resource "altertable_service_account" "test" {
-  name = "acc-test-sa"
+  label = "acc-test-sa"
 }
 
 resource "altertable_role_set" "test" {
