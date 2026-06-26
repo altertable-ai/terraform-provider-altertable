@@ -28,8 +28,9 @@ type ServiceAccountResource struct {
 }
 
 type serviceAccountResourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	ID    types.String `tfsdk:"id"`
+	Label types.String `tfsdk:"label"`
+	Slug  types.String `tfsdk:"slug"`
 }
 
 func (r *ServiceAccountResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -45,9 +46,14 @@ func (r *ServiceAccountResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Computed:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
-			"name": schema.StringAttribute{
-				MarkdownDescription: "Service account display name.",
+			"label": schema.StringAttribute{
+				MarkdownDescription: "Service account label.",
 				Required:            true,
+			},
+			"slug": schema.StringAttribute{
+				MarkdownDescription: "URL-safe service account slug (server-assigned).",
+				Computed:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 		},
 	}
@@ -71,15 +77,14 @@ func (r *ServiceAccountResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	sa, err := r.client.CreateServiceAccount(ctx, client.ServiceAccountCreateInput{
-		Name: plan.Name.ValueString(),
-	})
+	sa, err := r.client.CreateServiceAccount(ctx, client.CreateServiceAccountRequest{Label: plan.Label.ValueString()})
 	if err != nil {
 		resp.Diagnostics.AddError("Error creating service account", err.Error())
 		return
 	}
 	plan.ID = types.StringValue(sa.ID)
-	plan.Name = types.StringValue(sa.Name)
+	plan.Label = types.StringValue(sa.Label)
+	plan.Slug = types.StringValue(sa.Slug)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
@@ -98,7 +103,8 @@ func (r *ServiceAccountResource) Read(ctx context.Context, req resource.ReadRequ
 		resp.Diagnostics.AddError("Error reading service account", err.Error())
 		return
 	}
-	state.Name = types.StringValue(sa.Name)
+	state.Label = types.StringValue(sa.Label)
+	state.Slug = types.StringValue(sa.Slug)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
@@ -108,14 +114,13 @@ func (r *ServiceAccountResource) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	sa, err := r.client.UpdateServiceAccount(ctx, plan.ID.ValueString(), client.ServiceAccountUpdateInput{
-		Name: plan.Name.ValueString(),
-	})
+	sa, err := r.client.UpdateServiceAccount(ctx, plan.ID.ValueString(), client.UpdateServiceAccountRequest{Label: plan.Label.ValueString()})
 	if err != nil {
 		resp.Diagnostics.AddError("Error updating service account", err.Error())
 		return
 	}
-	plan.Name = types.StringValue(sa.Name)
+	plan.Label = types.StringValue(sa.Label)
+	plan.Slug = types.StringValue(sa.Slug)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
