@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// DefaultBaseURL is used when neither provider config nor ALTERTABLE_API_URL is set.
-const DefaultBaseURL = "https://app.altertable.ai"
+// DefaultBaseURL is the production Altertable Management REST API root.
+const DefaultBaseURL = "https://app.altertable.ai/rest/v1"
 
 // ErrNotImplemented is returned by every entity method until the REST API is wired up.
 var ErrNotImplemented = errors.New("altertable: client method not implemented")
@@ -36,14 +36,16 @@ func NewClient(baseURL, apiKey, version string) *Client {
 
 type APIError struct {
 	StatusCode int
+	Code       string
 	Message    string
+	Details    []string
 }
 
 func (e *APIError) Error() string {
 	if e.Message == "" {
 		return fmt.Sprintf("altertable API error: status %d", e.StatusCode)
 	}
-	return fmt.Sprintf("altertable API error: status %d: %s", e.StatusCode, e.Message)
+	return fmt.Sprintf("altertable API error: status %d (%s): %s", e.StatusCode, e.Code, e.Message)
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body, out any) error {
@@ -75,10 +77,19 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body, out a
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		var payload struct {
-			Message string `json:"message"`
+			Error struct {
+				Code    string   `json:"code"`
+				Message string   `json:"message"`
+				Details []string `json:"details"`
+			} `json:"error"`
 		}
 		_ = json.NewDecoder(res.Body).Decode(&payload)
-		return &APIError{StatusCode: res.StatusCode, Message: payload.Message}
+		return &APIError{
+			StatusCode: res.StatusCode,
+			Code:       payload.Error.Code,
+			Message:    payload.Error.Message,
+			Details:    payload.Error.Details,
+		}
 	}
 
 	if out != nil {
@@ -87,4 +98,12 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body, out a
 		}
 	}
 	return nil
+}
+
+// doJSON issues a request and decodes the JSON response into T. It keeps every
+// entity method to a single line: doJSON[EnvironmentResponse](ctx, c, "POST", "/environments", in).
+func doJSON[T any](ctx context.Context, c *Client, method, path string, body any) (T, error) {
+	var out T
+	err := c.doRequest(ctx, method, path, body, &out)
+	return out, err
 }
