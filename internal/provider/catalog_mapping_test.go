@@ -1,9 +1,11 @@
 package provider
 
 import (
+	"context"
 	"testing"
 
 	"github.com/altertable/terraform-provider-altertable/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -54,6 +56,20 @@ func TestApplyConnectionSetsKnownDBOnlyFields(t *testing.T) {
 	}
 	if m.Engine.ValueString() != "postgres" {
 		t.Errorf("engine = %q", m.Engine.ValueString())
+	}
+}
+
+func TestCatalogSchemaDBOnlyFieldsAreComputed(t *testing.T) {
+	var resp resource.SchemaResponse
+	NewCatalogResource().Schema(context.Background(), resource.SchemaRequest{}, &resp)
+	for _, name := range []string{"bucket_id", "snapshot_retention_days"} {
+		attr, ok := resp.Schema.Attributes[name]
+		if !ok {
+			t.Fatalf("missing attribute %s", name)
+		}
+		if !attr.IsComputed() {
+			t.Errorf("%s must be Optional+Computed to avoid inconsistent-result-after-apply on the database path", name)
+		}
 	}
 }
 
