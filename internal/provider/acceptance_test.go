@@ -15,12 +15,12 @@ func TestAccEnvironmentResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{{
 			Config: `resource "altertable_environment" "test" {
-  slug = "acctest"
-  name = "Acc Test"
+  name           = "Acc Test"
+  cloud_provider = "aws"
 }`,
 			Check: resource.ComposeAggregateTestCheckFunc(
 				resource.TestCheckResourceAttrSet("altertable_environment.test", "id"),
-				resource.TestCheckResourceAttr("altertable_environment.test", "slug", "acctest"),
+				resource.TestCheckResourceAttr("altertable_environment.test", "cloud_provider", "aws"),
 			),
 		}},
 	})
@@ -32,13 +32,13 @@ func TestAccCatalogResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{{
 			Config: `resource "altertable_environment" "test" {
-  slug = "acctest"
-  name = "Acc Test"
+  name           = "Acc Test"
+  cloud_provider = "aws"
 }
 
 resource "altertable_catalog" "test" {
   environment_id = altertable_environment.test.id
-  slug           = "acctest-catalog"
+  engine         = "altertable"
   name           = "Acc Test Catalog"
 }`,
 			Check: resource.TestCheckResourceAttrSet("altertable_catalog.test", "id"),
@@ -66,7 +66,7 @@ func TestAccServiceAccountResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{{
 			Config: `resource "altertable_service_account" "test" {
-  name = "acc-test-sa"
+  label = "acc-test-sa"
 }`,
 			Check: resource.TestCheckResourceAttrSet("altertable_service_account.test", "id"),
 		}},
@@ -100,18 +100,19 @@ func TestAccCredentialResource_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{{
 			Config: `resource "altertable_environment" "test" {
-  slug = "acctest"
-  name = "Acc Test"
+  name           = "Acc Test"
+  cloud_provider = "aws"
 }
 
 resource "altertable_service_account" "test" {
-  name = "acc-test-sa"
+  label = "acc-test-sa"
 }
 
 resource "altertable_credential" "test" {
-  service_account_id = altertable_service_account.test.id
-  environment_id     = altertable_environment.test.id
-  label              = "acc-test"
+  principal_type = "service_account"
+  principal_id   = altertable_service_account.test.id
+  environment_id = altertable_environment.test.id
+  label          = "acc-test"
 }`,
 			Check: resource.ComposeAggregateTestCheckFunc(
 				resource.TestCheckResourceAttrSet("altertable_credential.test", "id"),
@@ -139,10 +140,14 @@ func TestAccServiceAccountDataSource_basic(t *testing.T) {
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{{
-			Config: `data "altertable_service_account" "test" {
-  name = "dbt Cloud"
+			Config: `resource "altertable_service_account" "seed" {
+  label = "acc-ds-sa"
+}
+
+data "altertable_service_account" "test" {
+  id = altertable_service_account.seed.id
 }`,
-			Check: resource.TestCheckResourceAttrSet("data.altertable_service_account.test", "id"),
+			Check: resource.TestCheckResourceAttrSet("data.altertable_service_account.test", "label"),
 		}},
 	})
 }
