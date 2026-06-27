@@ -398,12 +398,22 @@ func applyConnectionPreservingConfig(m *catalogResourceModel, con *client.Connec
 	m.applyConnection(con)
 }
 
-func (r *CatalogResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.SplitN(req.ID, ":", 2)
+// parseCatalogImportID splits the "environment_id:id" back-compat import string.
+// Only the first colon splits, so an id containing ':' is preserved.
+func parseCatalogImportID(s string) (env, id string, ok bool) {
+	parts := strings.SplitN(s, ":", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
+}
+
+func (r *CatalogResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	env, id, ok := parseCatalogImportID(req.ID)
+	if !ok {
 		resp.Diagnostics.AddError("Invalid import ID", "expected \"environment_id:id\"")
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[1])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), env)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }

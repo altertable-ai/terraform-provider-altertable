@@ -49,6 +49,9 @@ func (r *CredentialResource) Metadata(_ context.Context, req resource.MetadataRe
 func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	forceNew := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	useState := []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
+	// label is immutable but user-settable: keep server-assigned values stable, and
+	// force replacement (rather than a hard Update error) when the user changes it.
+	labelMods := []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "A login credential for a user or service account in an environment. Credentials are immutable; the password is returned only at creation.",
 		Attributes: map[string]schema.Attribute{
@@ -61,7 +64,7 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"principal_id":    schema.StringAttribute{MarkdownDescription: "ID of the user or service account. Changing this forces a new credential.", Required: true, PlanModifiers: forceNew},
 			"environment_id":  schema.StringAttribute{MarkdownDescription: "Environment the credential grants access to. Changing this forces a new credential.", Required: true, PlanModifiers: forceNew},
-			"label":           schema.StringAttribute{MarkdownDescription: "Human-readable label. Immutable; changing it requires recreating the credential.", Optional: true, Computed: true, PlanModifiers: useState},
+			"label":           schema.StringAttribute{MarkdownDescription: "Human-readable label. Immutable; changing it forces a new credential.", Optional: true, Computed: true, PlanModifiers: labelMods},
 			"username":        schema.StringAttribute{MarkdownDescription: "Generated username.", Computed: true, PlanModifiers: useState},
 			"password":        schema.StringAttribute{MarkdownDescription: "Generated password. Available only at creation; never re-read from the API.", Computed: true, Sensitive: true, PlanModifiers: useState},
 			"default":         schema.BoolAttribute{MarkdownDescription: "Whether this is the principal's default credential.", Computed: true},
@@ -126,13 +129,13 @@ func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest,
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 }
 
-// Update always hard-errors because credentials are immutable — the API has no
-// update endpoint. Any change (including a label edit) must recreate the resource
-// (taint it). This method exists solely to satisfy the resource.Resource interface.
+// Update is unreachable: every settable attribute (principal_type, principal_id,
+// environment_id, label) forces replacement, so Terraform never plans an in-place
+// update. It hard-errors as a defensive backstop and to satisfy the interface.
 func (r *CredentialResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
 	resp.Diagnostics.AddError(
 		"Credentials are immutable",
-		"The Altertable API has no credential update endpoint. Recreate the credential (e.g. taint it) to change it.",
+		"The Altertable API has no credential update endpoint. Change a credential by recreating it.",
 	)
 }
 
@@ -150,18 +153,32 @@ func (r *CredentialResource) Delete(ctx context.Context, req resource.DeleteRequ
 	}
 }
 
-// ImportState parses "principal_type:principal_id:environment_id:id". The imported
-// credential's password will be null (the API never returns it).
-func (r *CredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	parts := strings.Split(req.ID, ":")
+// parseCredentialImportID splits the back-compat
+// "principal_type:principal_id:environment_id:id" import string. All four
+// segments must be non-empty.
+func parseCredentialImportID(s string) (principalType, principalID, env, id string, ok bool) {
+	parts := strings.Split(s, ":")
 	if len(parts) != 4 {
+		return "", "", "", "", false
+	}
+	for _, p := range parts {
+		if p == "" {
+			return "", "", "", "", false
+		}
+	}
+	return parts[0], parts[1], parts[2], parts[3], true
+}
+
+func (r *CredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	pt, pid, env, id, ok := parseCredentialImportID(req.ID)
+	if !ok {
 		resp.Diagnostics.AddError("Invalid import ID", "expected \"principal_type:principal_id:environment_id:id\"")
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_type"), parts[0])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_id"), parts[1])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), parts[2])...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), parts[3])...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_type"), pt)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_id"), pid)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), env)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 }
 
 func applyCredential(m *credentialResourceModel, cred *client.Credential) {
