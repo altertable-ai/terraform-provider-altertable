@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -20,7 +21,35 @@ var (
 	_ resource.Resource                = (*CredentialResource)(nil)
 	_ resource.ResourceWithConfigure   = (*CredentialResource)(nil)
 	_ resource.ResourceWithImportState = (*CredentialResource)(nil)
+	_ resource.ResourceWithIdentity    = (*CredentialResource)(nil)
 )
+
+type credentialIdentityModel struct {
+	PrincipalType types.String `tfsdk:"principal_type"`
+	PrincipalID   types.String `tfsdk:"principal_id"`
+	EnvironmentID types.String `tfsdk:"environment_id"`
+	ID            types.String `tfsdk:"id"`
+}
+
+func credentialIdentity(m *credentialResourceModel) credentialIdentityModel {
+	return credentialIdentityModel{
+		PrincipalType: m.PrincipalType,
+		PrincipalID:   m.PrincipalID,
+		EnvironmentID: m.EnvironmentID,
+		ID:            m.ID,
+	}
+}
+
+func (r *CredentialResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"principal_type": identityschema.StringAttribute{RequiredForImport: true},
+			"principal_id":   identityschema.StringAttribute{RequiredForImport: true},
+			"environment_id": identityschema.StringAttribute{RequiredForImport: true},
+			"id":             identityschema.StringAttribute{RequiredForImport: true},
+		},
+	}
+}
 
 func NewCredentialResource() resource.Resource { return &CredentialResource{} }
 
@@ -105,6 +134,7 @@ func (r *CredentialResource) Create(ctx context.Context, req resource.CreateRequ
 	applyCredential(&plan, cred)
 	plan.Password = types.StringValue(password)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, credentialIdentity(&plan))...)
 }
 
 func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -127,6 +157,7 @@ func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest,
 	// password is write-once and never returned; keep prior state value.
 	applyCredential(&state, cred)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, credentialIdentity(&state))...)
 }
 
 // Update is unreachable: every settable attribute (principal_type, principal_id,
@@ -170,15 +201,28 @@ func parseCredentialImportID(s string) (principalType, principalID, env, id stri
 }
 
 func (r *CredentialResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	pt, pid, env, id, ok := parseCredentialImportID(req.ID)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid import ID", "expected \"principal_type:principal_id:environment_id:id\"")
+	if req.ID != "" {
+		// Back-compat: "principal_type:principal_id:environment_id:id" colon string.
+		pt, pid, env, id, ok := parseCredentialImportID(req.ID)
+		if !ok {
+			resp.Diagnostics.AddError("Invalid import ID", "expected \"principal_type:principal_id:environment_id:id\"")
+			return
+		}
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_type"), pt)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_id"), pid)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), env)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_type"), pt)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_id"), pid)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), env)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	var ident credentialIdentityModel
+	resp.Diagnostics.Append(req.Identity.Get(ctx, &ident)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_type"), ident.PrincipalType)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("principal_id"), ident.PrincipalID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), ident.EnvironmentID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), ident.ID)...)
 }
 
 func applyCredential(m *credentialResourceModel, cred *client.Credential) {

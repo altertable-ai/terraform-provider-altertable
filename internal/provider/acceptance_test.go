@@ -122,11 +122,7 @@ resource "altertable_role_set" "test" {
 }
 
 func TestAccCredentialResource_basic(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{{
-			Config: `resource "altertable_environment" "test" {
+	const config = `resource "altertable_environment" "test" {
   name           = "Acc Test"
   cloud_provider = "aws"
 }
@@ -140,12 +136,42 @@ resource "altertable_credential" "test" {
   principal_id   = altertable_service_account.test.id
   environment_id = altertable_environment.test.id
   label          = "acc-test"
-}`,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				resource.TestCheckResourceAttrSet("altertable_credential.test", "id"),
-				resource.TestCheckResourceAttrSet("altertable_credential.test", "password"),
-			),
-		}},
+}`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("altertable_credential.test", "id"),
+					resource.TestCheckResourceAttrSet("altertable_credential.test", "password"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("altertable_credential.test", tfjsonpath.New("principal_type")),
+					statecheck.ExpectIdentityValueMatchesState("altertable_credential.test", tfjsonpath.New("principal_id")),
+					statecheck.ExpectIdentityValueMatchesState("altertable_credential.test", tfjsonpath.New("environment_id")),
+					statecheck.ExpectIdentityValueMatchesState("altertable_credential.test", tfjsonpath.New("id")),
+				},
+			},
+			{
+				ResourceName:            "altertable_credential.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password"},
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					a := s.RootModule().Resources["altertable_credential.test"].Primary.Attributes
+					return a["principal_type"] + ":" + a["principal_id"] + ":" + a["environment_id"] + ":" + a["id"], nil
+				},
+			},
+			{
+				ResourceName:            "altertable_credential.test",
+				ImportState:             true,
+				ImportStateKind:         resource.ImportBlockWithResourceIdentity,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password"},
+			},
+		},
 	})
 }
 
