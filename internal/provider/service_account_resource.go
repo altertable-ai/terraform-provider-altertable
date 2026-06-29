@@ -7,6 +7,7 @@ import (
 	"github.com/altertable/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -16,6 +17,7 @@ import (
 var (
 	_ resource.Resource                = (*ServiceAccountResource)(nil)
 	_ resource.ResourceWithConfigure   = (*ServiceAccountResource)(nil)
+	_ resource.ResourceWithIdentity    = (*ServiceAccountResource)(nil)
 	_ resource.ResourceWithImportState = (*ServiceAccountResource)(nil)
 )
 
@@ -86,6 +88,7 @@ func (r *ServiceAccountResource) Create(ctx context.Context, req resource.Create
 	plan.Label = types.StringValue(sa.Label)
 	plan.Slug = types.StringValue(sa.Slug)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), plan.ID)...)
 }
 
 func (r *ServiceAccountResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -106,6 +109,7 @@ func (r *ServiceAccountResource) Read(ctx context.Context, req resource.ReadRequ
 	state.Label = types.StringValue(sa.Label)
 	state.Slug = types.StringValue(sa.Slug)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), state.ID)...)
 }
 
 func (r *ServiceAccountResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -122,6 +126,7 @@ func (r *ServiceAccountResource) Update(ctx context.Context, req resource.Update
 	plan.Label = types.StringValue(sa.Label)
 	plan.Slug = types.StringValue(sa.Slug)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), plan.ID)...)
 }
 
 func (r *ServiceAccountResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -135,6 +140,14 @@ func (r *ServiceAccountResource) Delete(ctx context.Context, req resource.Delete
 	}
 }
 
+func (r *ServiceAccountResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"id": identityschema.StringAttribute{RequiredForImport: true},
+		},
+	}
+}
+
 func (r *ServiceAccountResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughWithIdentity(ctx, path.Root("id"), path.Root("id"), req, resp)
 }

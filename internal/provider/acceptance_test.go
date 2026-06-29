@@ -13,19 +13,31 @@ import (
 // client methods in internal/client are implemented. resource.Test skips otherwise.
 
 func TestAccEnvironmentResource_basic(t *testing.T) {
+	const config = `resource "altertable_environment" "test" {
+  name           = "Acc Test"
+  cloud_provider = "aws"
+}`
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{{
-			Config: `resource "altertable_environment" "test" {
-  name           = "Acc Test"
-  cloud_provider = "aws"
-}`,
-			Check: resource.ComposeAggregateTestCheckFunc(
-				resource.TestCheckResourceAttrSet("altertable_environment.test", "id"),
-				resource.TestCheckResourceAttr("altertable_environment.test", "cloud_provider", "aws"),
-			),
-		}},
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("altertable_environment.test", "id"),
+					resource.TestCheckResourceAttr("altertable_environment.test", "cloud_provider", "aws"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("altertable_environment.test", tfjsonpath.New("id")),
+				},
+			},
+			{
+				ResourceName:      "altertable_environment.test",
+				ImportState:       true,
+				ImportStateKind:   resource.ImportBlockWithResourceIdentity,
+				ImportStateVerify: true,
+			},
+		},
 	})
 }
 
@@ -88,15 +100,27 @@ func TestAccUserResource_basic(t *testing.T) {
 }
 
 func TestAccServiceAccountResource_basic(t *testing.T) {
+	const config = `resource "altertable_service_account" "test" {
+  label = "acc-test-sa"
+}`
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{{
-			Config: `resource "altertable_service_account" "test" {
-  label = "acc-test-sa"
-}`,
-			Check: resource.TestCheckResourceAttrSet("altertable_service_account.test", "id"),
-		}},
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttrSet("altertable_service_account.test", "id"),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("altertable_service_account.test", tfjsonpath.New("id")),
+				},
+			},
+			{
+				ResourceName:      "altertable_service_account.test",
+				ImportState:       true,
+				ImportStateKind:   resource.ImportBlockWithResourceIdentity,
+				ImportStateVerify: true,
+			},
+		},
 	})
 }
 

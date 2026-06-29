@@ -7,6 +7,7 @@ import (
 	"github.com/altertable/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -16,6 +17,7 @@ import (
 var (
 	_ resource.Resource                = (*UserResource)(nil)
 	_ resource.ResourceWithConfigure   = (*UserResource)(nil)
+	_ resource.ResourceWithIdentity    = (*UserResource)(nil)
 	_ resource.ResourceWithImportState = (*UserResource)(nil)
 )
 
@@ -39,7 +41,7 @@ func (r *UserResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *UserResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "An Altertable user.",
+		MarkdownDescription: "**Not yet implemented** — the Altertable REST API does not yet expose users, so `terraform apply` will fail until it does. An Altertable user.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "User identifier.",
@@ -89,6 +91,7 @@ func (r *UserResource) Create(ctx context.Context, req resource.CreateRequest, r
 	plan.Email = types.StringValue(u.Email)
 	plan.Name = types.StringValue(u.Name)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), plan.ID)...)
 }
 
 func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -109,6 +112,7 @@ func (r *UserResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	state.Email = types.StringValue(u.Email)
 	state.Name = types.StringValue(u.Name)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), state.ID)...)
 }
 
 func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -127,6 +131,7 @@ func (r *UserResource) Update(ctx context.Context, req resource.UpdateRequest, r
 	plan.Email = types.StringValue(u.Email)
 	plan.Name = types.StringValue(u.Name)
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), plan.ID)...)
 }
 
 func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -140,6 +145,14 @@ func (r *UserResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 	}
 }
 
+func (r *UserResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"id": identityschema.StringAttribute{RequiredForImport: true},
+		},
+	}
+}
+
 func (r *UserResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+	resource.ImportStatePassthroughWithIdentity(ctx, path.Root("id"), path.Root("id"), req, resp)
 }
