@@ -1,28 +1,16 @@
 package client
 
-import "context"
+import (
+	"context"
+	"net/http"
+	"net/url"
+)
 
-// GetUserByEmail: GET /v1/users?email={email}
+// GetUserByEmail looks up a user by email: GET /users/lookup?email={email}.
 func (c *Client) GetUserByEmail(ctx context.Context, email string) (*User, error) {
-	return nil, ErrNotImplemented
-}
-
-// GetUser: GET /v1/users/{id}
-func (c *Client) GetUser(ctx context.Context, id string) (*User, error) {
-	return nil, ErrNotImplemented
-}
-
-// CreateUser (invite): POST /v1/users
-func (c *Client) CreateUser(ctx context.Context, in UserCreateInput) (*User, error) {
-	return nil, ErrNotImplemented
-}
-
-// UpdateUser: PATCH /v1/users/{id}
-func (c *Client) UpdateUser(ctx context.Context, id string, in UserUpdateInput) (*User, error) {
-	return nil, ErrNotImplemented
-}
-
-// DeleteUser: DELETE /v1/users/{id}
-func (c *Client) DeleteUser(ctx context.Context, id string) error {
-	return ErrNotImplemented
+	resp, err := doJSON[UserResponse](ctx, c, http.MethodGet, "/users/lookup?email="+url.QueryEscape(email), nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.User, nil
 }

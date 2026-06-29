@@ -3,12 +3,12 @@
 page_title: "altertable_user Data Source - altertable"
 subcategory: ""
 description: |-
-  Not yet implemented — the Altertable REST API does not yet expose users, so reads will fail until it does. Look up an Altertable user by email.
+  Look up an Altertable user by email.
 ---
 
 # altertable_user (Data Source)
 
-**Not yet implemented** — the Altertable REST API does not yet expose users, so reads will fail until it does. Look up an Altertable user by email.
+Look up an Altertable user by email.
 
 ## Example Usage
 

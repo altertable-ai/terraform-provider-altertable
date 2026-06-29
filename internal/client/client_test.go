@@ -81,9 +81,3 @@ func TestDoJSONDecodesEnvelope(t *testing.T) {
 	}
 }
 
-func TestStubReturnsErrNotImplemented(t *testing.T) {
-	c := NewClient(DefaultBaseURL, "secret", "test")
-	if _, err := c.GetUser(context.Background(), "u_1"); !errors.Is(err, ErrNotImplemented) {
-		t.Fatalf("error = %v, want ErrNotImplemented", err)
-	}
-}

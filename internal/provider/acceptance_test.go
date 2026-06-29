@@ -85,20 +85,6 @@ resource "altertable_catalog" "test" {
 	})
 }
 
-func TestAccUserResource_basic(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{{
-			Config: `resource "altertable_user" "test" {
-  email = "acctest@example.com"
-  name  = "Acc Test"
-}`,
-			Check: resource.TestCheckResourceAttrSet("altertable_user.test", "id"),
-		}},
-	})
-}
-
 func TestAccServiceAccountResource_basic(t *testing.T) {
 	const config = `resource "altertable_service_account" "test" {
   label = "acc-test-sa"

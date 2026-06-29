@@ -170,7 +170,7 @@ type UpdateConnectionRequest struct {
 	Name                string                         `json:"name,omitempty"`
 	ReadOnly            *bool                          `json:"read_only,omitempty"`
 	Tags                []string                       `json:"tags,omitempty"`
-	Description         string                         `json:"description,omitempty"`
+	Description         *string                        `json:"description,omitempty"`
 	StandardConfig      *ConnectionStandardConfig      `json:"standard_config,omitempty"`
 	MysqlConfig         *ConnectionMysqlConfig         `json:"mysql_config,omitempty"`
 	PostgresConfig      *ConnectionPostgresConfig      `json:"postgres_config,omitempty"`
@@ -223,8 +223,8 @@ type UpdateDatabaseRequest struct {
 	Name                  string   `json:"name,omitempty"`
 	ReadOnly              *bool    `json:"read_only,omitempty"`
 	Tags                  []string `json:"tags,omitempty"`
-	SnapshotRetentionDays int      `json:"snapshot_retention_days,omitempty"`
-	Description           string   `json:"description,omitempty"`
+	SnapshotRetentionDays *int     `json:"snapshot_retention_days,omitempty"`
+	Description           *string  `json:"description,omitempty"`
 }
 
 type DatabaseResponse struct {
@@ -263,7 +263,7 @@ type CredentialResponse struct {
 	Credential Credential `json:"credential"`
 }
 
-// ---- Stub types (user & role_set endpoints are not implemented yet) ----
+// ---- User ----
 
 type User struct {
 	ID    string `json:"id"`
@@ -271,14 +271,11 @@ type User struct {
 	Name  string `json:"name"`
 }
 
-type UserCreateInput struct {
-	Email string `json:"email"`
-	Name  string `json:"name"`
+type UserResponse struct {
+	User User `json:"user"`
 }
 
-type UserUpdateInput struct {
-	Name string `json:"name"`
-}
+// ---- Role set ----
 
 type RoleGrant struct {
 	Role       string `json:"role"`
