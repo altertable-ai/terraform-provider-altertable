@@ -42,10 +42,17 @@ type APIError struct {
 }
 
 func (e *APIError) Error() string {
-	if e.Message == "" {
-		return fmt.Sprintf("altertable API error: status %d", e.StatusCode)
+	msg := fmt.Sprintf("altertable API error: status %d", e.StatusCode)
+	if e.Code != "" {
+		msg += fmt.Sprintf(" (%s)", e.Code)
 	}
-	return fmt.Sprintf("altertable API error: status %d (%s): %s", e.StatusCode, e.Code, e.Message)
+	if e.Message != "" {
+		msg += ": " + e.Message
+	}
+	if len(e.Details) > 0 {
+		msg += " [" + strings.Join(e.Details, "; ") + "]"
+	}
+	return msg
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body, out any) error {

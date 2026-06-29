@@ -11,7 +11,7 @@ resource "altertable_catalog" "analytics" {
   engine         = "postgres"
   name           = "Analytics"
 
-  postgres_config {
+  postgres_config = {
     host     = "db.example.com"
     port     = 5432
     database = "analytics"

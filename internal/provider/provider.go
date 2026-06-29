@@ -2,6 +2,9 @@ package provider
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/altertable/terraform-provider-altertable/internal/client"
@@ -106,8 +109,39 @@ func (p *AltertableProvider) Configure(ctx context.Context, req provider.Configu
 	}
 
 	c := client.NewClient(baseURL, apiKey, p.version)
+
+	// Validate the key now (GET /whoami) so a bad key fails fast at plan/apply
+	resp.Diagnostics.Append(validateCredentials(ctx, c)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	resp.DataSourceData = c
 	resp.ResourceData = c
+}
+
+// validateCredentials calls /whoami and turns auth failures into clear, actionable
+// diagnostics: 401 = invalid/expired key, 403 = key lacks management API access,
+// anything else = the API was unreachable or errored.
+func validateCredentials(ctx context.Context, c *client.Client) diag.Diagnostics {
+	var diags diag.Diagnostics
+	if _, err := c.Whoami(ctx); err != nil {
+		var apiErr *client.APIError
+		switch {
+		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusUnauthorized:
+			diags.AddAttributeError(path.Root("api_key"), "Invalid Altertable API key",
+				fmt.Sprintf("The Altertable management API rejected the key (401 Unauthorized: %s). "+
+					"Check the api_key argument or the %s environment variable.", apiErr.Message, envAPIKey))
+		case errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden:
+			diags.AddAttributeError(path.Root("api_key"), "Altertable API key not authorized",
+				fmt.Sprintf("The key was accepted but is not allowed to use the management API (403 Forbidden: %s). "+
+					"Check your API key permissions.", apiErr.Message))
+		default:
+			diags.AddError("Could not validate Altertable credentials",
+				"Failed to verify the API key against the Altertable management API: "+err.Error())
+		}
+	}
+	return diags
 }
 
 func (p *AltertableProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -127,5 +161,6 @@ func (p *AltertableProvider) DataSources(_ context.Context) []func() datasource.
 		NewUserDataSource,
 		NewServiceAccountDataSource,
 		NewCredentialDataSource,
+		NewWhoamiDataSource,
 	}
 }

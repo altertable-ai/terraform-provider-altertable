@@ -2,6 +2,8 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/altertable/terraform-provider-altertable/internal/client"
@@ -70,6 +72,46 @@ func TestCatalogSchemaDBOnlyFieldsAreComputed(t *testing.T) {
 		if !attr.IsComputed() {
 			t.Errorf("%s must be Optional+Computed to avoid inconsistent-result-after-apply on the database path", name)
 		}
+	}
+}
+
+// An explicit snapshot_retention_days = 0 must reach the wire; an unset value must be
+// omitted so the server applies its own default. A non-pointer omitempty int could not
+// tell these apart, which caused "inconsistent result after apply" when the server
+// default was non-zero.
+func TestToCreateDatabaseRequestTransmitsExplicitZeroRetention(t *testing.T) {
+	explicit := &catalogResourceModel{
+		Name:                  types.StringValue("Main"),
+		Engine:                types.StringValue(engineAltertable),
+		SnapshotRetentionDays: types.Int64Value(0),
+	}
+	if got := explicit.toCreateDatabaseRequest().SnapshotRetentionDays; got == nil || *got != 0 {
+		t.Fatalf("SnapshotRetentionDays = %v, want pointer to 0", got)
+	}
+	if body, _ := json.Marshal(explicit.toCreateDatabaseRequest()); !strings.Contains(string(body), `"snapshot_retention_days":0`) {
+		t.Errorf("body = %s, want it to carry snapshot_retention_days:0", body)
+	}
+
+	unset := &catalogResourceModel{
+		Name:                  types.StringValue("Main"),
+		Engine:                types.StringValue(engineAltertable),
+		SnapshotRetentionDays: types.Int64Null(),
+	}
+	if got := unset.toCreateDatabaseRequest().SnapshotRetentionDays; got != nil {
+		t.Errorf("SnapshotRetentionDays = %v, want nil (omitted)", *got)
+	}
+	if body, _ := json.Marshal(unset.toCreateDatabaseRequest()); strings.Contains(string(body), "snapshot_retention_days") {
+		t.Errorf("body = %s, want snapshot_retention_days omitted", body)
+	}
+}
+
+// An empty description from the server must stay "" (not collapse to null) for the
+// user-settable Optional+Computed attribute, so an explicit description = "" round-trips.
+func TestApplyDatabaseKeepsEmptyDescriptionKnown(t *testing.T) {
+	m := &catalogResourceModel{Description: types.StringValue("")}
+	m.applyDatabase(&client.Database{ID: "db_1", Description: ""})
+	if m.Description.IsNull() || m.Description.ValueString() != "" {
+		t.Errorf("description = %v, want known empty string", m.Description)
 	}
 }
 

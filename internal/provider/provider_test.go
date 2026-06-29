@@ -2,6 +2,9 @@ package provider
 
 import (
 	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -41,6 +44,47 @@ func TestProviderSchemaValid(t *testing.T) {
 		if d.Severity == tfprotov6.DiagnosticSeverityError {
 			t.Errorf("schema diagnostic: %s: %s", d.Summary, d.Detail)
 		}
+	}
+}
+
+func TestValidateCredentials(t *testing.T) {
+	cases := []struct {
+		name        string
+		status      int
+		body        string
+		wantErr     bool
+		wantSummary string
+	}{
+		{"valid key", http.StatusOK, `{"principal":{"id":"p","type":"User","name":"Jane"},"organization":{"id":"o","name":"Acme","slug":"acme"}}`, false, ""},
+		{"invalid key", http.StatusUnauthorized, `{"error":{"code":"unauthorized","message":"Invalid or expired token"}}`, true, "Invalid Altertable API key"},
+		{"forbidden key", http.StatusForbidden, `{"error":{"code":"forbidden","message":"You are not allowed to use the management API"}}`, true, "Altertable API key not authorized"},
+		{"server error", http.StatusInternalServerError, `{"error":{"code":"internal","message":"boom"}}`, true, "Could not validate Altertable credentials"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tc.status)
+				_, _ = io.WriteString(w, tc.body)
+			}))
+			defer srv.Close()
+
+			c := client.NewClient(srv.URL, "key", "test")
+			diags := validateCredentials(context.Background(), c)
+			if diags.HasError() != tc.wantErr {
+				t.Fatalf("HasError = %v, want %v (diags: %v)", diags.HasError(), tc.wantErr, diags)
+			}
+			if tc.wantSummary != "" {
+				found := false
+				for _, d := range diags {
+					if d.Summary() == tc.wantSummary {
+						found = true
+					}
+				}
+				if !found {
+					t.Errorf("missing diagnostic summary %q; got %v", tc.wantSummary, diags)
+				}
+			}
+		})
 	}
 }
 

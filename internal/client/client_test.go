@@ -80,4 +80,3 @@ func TestDoJSONDecodesEnvelope(t *testing.T) {
 		t.Errorf("decoded = %+v", got)
 	}
 }
-

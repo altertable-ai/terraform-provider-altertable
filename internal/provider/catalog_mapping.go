@@ -159,6 +159,25 @@ func optString(s string) types.String {
 	return types.StringValue(s)
 }
 
+// ptrInt and ptrString return nil for a null/unknown value — so a create or update
+// request omits the field — and otherwise a pointer to the value, including the zero
+// value (0 / "") that a non-pointer omitempty field could never transmit.
+func ptrInt(v types.Int64) *int {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	i := int(v.ValueInt64())
+	return &i
+}
+
+func ptrString(v types.String) *string {
+	if v.IsNull() || v.IsUnknown() {
+		return nil
+	}
+	s := v.ValueString()
+	return &s
+}
+
 // --- database mapping ---
 
 func (m *catalogResourceModel) toCreateDatabaseRequest() client.CreateDatabaseRequest {
@@ -167,7 +186,7 @@ func (m *catalogResourceModel) toCreateDatabaseRequest() client.CreateDatabaseRe
 		BucketID:              m.BucketID.ValueString(),
 		ReadOnly:              m.ReadOnly.ValueBool(),
 		Tags:                  tagStrings(m.Tags),
-		SnapshotRetentionDays: int(m.SnapshotRetentionDays.ValueInt64()),
+		SnapshotRetentionDays: ptrInt(m.SnapshotRetentionDays),
 		Description:           m.Description.ValueString(),
 	}
 }
@@ -178,8 +197,8 @@ func (m *catalogResourceModel) toUpdateDatabaseRequest() client.UpdateDatabaseRe
 		Name:                  m.Name.ValueString(),
 		ReadOnly:              &ro,
 		Tags:                  tagStrings(m.Tags),
-		SnapshotRetentionDays: int(m.SnapshotRetentionDays.ValueInt64()),
-		Description:           m.Description.ValueString(),
+		SnapshotRetentionDays: ptrInt(m.SnapshotRetentionDays),
+		Description:           ptrString(m.Description),
 	}
 }
 
@@ -190,12 +209,15 @@ func (m *catalogResourceModel) applyDatabase(db *client.Database) {
 	m.Name = types.StringValue(db.Name)
 	m.Slug = types.StringValue(db.Slug)
 	m.ReadOnly = types.BoolValue(db.ReadOnly)
-	m.Description = optString(db.Description)
+	// description and bucket_id are user-settable Optional+Computed: store the server
+	// value verbatim (not optString) so an explicit "" round-trips instead of
+	// collapsing to null and tripping "inconsistent result after apply".
+	m.Description = types.StringValue(db.Description)
 	m.Tags = tagList(db.Tags)
 	m.Catalog = types.StringValue(db.Catalog)
 	m.CreatedAt = types.StringValue(db.CreatedAt)
 	m.UpdatedAt = types.StringValue(db.UpdatedAt)
-	m.BucketID = optString(db.BucketID)
+	m.BucketID = types.StringValue(db.BucketID)
 	m.SnapshotRetentionDays = types.Int64Value(int64(db.SnapshotRetentionDays))
 	m.BuiltIn = types.BoolValue(db.BuiltIn)
 }
@@ -220,7 +242,7 @@ func (m *catalogResourceModel) toUpdateConnectionRequest() client.UpdateConnecti
 		Name:        m.Name.ValueString(),
 		ReadOnly:    &ro,
 		Tags:        tagStrings(m.Tags),
-		Description: m.Description.ValueString(),
+		Description: ptrString(m.Description),
 	}
 	c := m.toCreateConnectionRequest()
 	in.StandardConfig, in.MysqlConfig, in.PostgresConfig = c.StandardConfig, c.MysqlConfig, c.PostgresConfig
@@ -315,7 +337,9 @@ func (m *catalogResourceModel) applyConnection(con *client.Connection) {
 	m.Name = types.StringValue(con.Name)
 	m.Slug = types.StringValue(con.Slug)
 	m.ReadOnly = types.BoolValue(con.ReadOnly)
-	m.Description = optString(con.Description)
+	// description is user-settable Optional+Computed: keep the server value verbatim so
+	// an explicit "" round-trips instead of collapsing to null (see applyDatabase).
+	m.Description = types.StringValue(con.Description)
 	m.Tags = tagList(con.Tags)
 	m.Catalog = types.StringValue(con.Catalog)
 	m.CreatedAt = types.StringValue(con.CreatedAt)

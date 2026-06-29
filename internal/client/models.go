@@ -2,6 +2,27 @@ package client
 
 import "encoding/json"
 
+// ---- Whoami ----
+
+type Principal struct {
+	ID    string `json:"id"`
+	Type  string `json:"type"` // "User" or "ServiceAccount"
+	Name  string `json:"name"`
+	Email string `json:"email,omitempty"`
+	Slug  string `json:"slug,omitempty"`
+}
+
+type Organization struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type WhoamiResponse struct {
+	Principal    Principal    `json:"principal"`
+	Organization Organization `json:"organization"`
+}
+
 // ---- Environment ----
 
 type Environment struct {
@@ -215,7 +236,7 @@ type CreateDatabaseRequest struct {
 	BucketID              string   `json:"bucket_id,omitempty"`
 	ReadOnly              bool     `json:"read_only,omitempty"`
 	Tags                  []string `json:"tags,omitempty"`
-	SnapshotRetentionDays int      `json:"snapshot_retention_days,omitempty"`
+	SnapshotRetentionDays *int     `json:"snapshot_retention_days,omitempty"`
 	Description           string   `json:"description,omitempty"`
 }
 

@@ -4,10 +4,10 @@ import "testing"
 
 func TestParseCatalogImportID(t *testing.T) {
 	tests := []struct {
-		name             string
-		in               string
-		wantEnv, wantID  string
-		wantOK           bool
+		name            string
+		in              string
+		wantEnv, wantID string
+		wantOK          bool
 	}{
 		{"valid", "env_1:db_2", "env_1", "db_2", true},
 		{"colon in id is preserved", "env_1:db:2", "env_1", "db:2", true},

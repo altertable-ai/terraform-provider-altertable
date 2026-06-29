@@ -55,7 +55,9 @@ func (r *ServiceAccountResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"slug": schema.StringAttribute{
 				MarkdownDescription: "URL-safe service account slug (server-assigned).",
 				Computed:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				// No UseStateForUnknown here: the server derives slug from label, so
+				// changing label changes slug. Reusing the old slug at plan time would
+				// contradict what apply returns ("inconsistent result after apply").
 			},
 		},
 	}

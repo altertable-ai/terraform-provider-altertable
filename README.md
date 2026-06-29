@@ -3,9 +3,10 @@
 Manage [Altertable](https://altertable.ai) resources with Terraform.
 
 > **Status:** The provider implements environments, service accounts, catalogs
-> (databases and connections), and credentials against the Altertable Management
-> REST API. The `altertable_user` and `altertable_role_set` resources are not yet
-> implemented (their API endpoints are forthcoming).
+> (databases and connections), credentials, and role sets against the Altertable
+> Management REST API. Users are managed outside Terraform — there is no
+> `altertable_user` resource, but the `altertable_user` and `altertable_whoami`
+> data sources look up a user by email and the configured key's own identity.
 
 ## Requirements
 

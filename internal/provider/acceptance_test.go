@@ -185,6 +185,21 @@ resource "altertable_credential" "test" {
 	})
 }
 
+func TestAccWhoamiDataSource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `data "altertable_whoami" "current" {}`,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttrSet("data.altertable_whoami.current", "organization_id"),
+				resource.TestCheckResourceAttrSet("data.altertable_whoami.current", "principal_id"),
+				resource.TestCheckResourceAttrSet("data.altertable_whoami.current", "principal_type"),
+			),
+		}},
+	})
+}
+
 func TestAccEnvironmentDataSource_basic(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
