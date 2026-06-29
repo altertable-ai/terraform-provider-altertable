@@ -4,6 +4,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
 // These acceptance tests run only when TF_ACC is set and the Altertable API plus the
@@ -27,11 +30,7 @@ func TestAccEnvironmentResource_basic(t *testing.T) {
 }
 
 func TestAccCatalogResource_basic(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
-		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		Steps: []resource.TestStep{{
-			Config: `resource "altertable_environment" "test" {
+	const config = `resource "altertable_environment" "test" {
   name           = "Acc Test"
   cloud_provider = "aws"
 }
@@ -40,9 +39,37 @@ resource "altertable_catalog" "test" {
   environment_id = altertable_environment.test.id
   engine         = "altertable"
   name           = "Acc Test Catalog"
-}`,
-			Check: resource.TestCheckResourceAttrSet("altertable_catalog.test", "id"),
-		}},
+}`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check:  resource.TestCheckResourceAttrSet("altertable_catalog.test", "id"),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("environment_id")),
+					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("id")),
+				},
+			},
+			{
+				// Back-compat import via the "environment_id:id" colon string.
+				ResourceName:      "altertable_catalog.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					rs := s.RootModule().Resources["altertable_catalog.test"]
+					return rs.Primary.Attributes["environment_id"] + ":" + rs.Primary.Attributes["id"], nil
+				},
+			},
+			{
+				// Import via the typed identity block (Terraform 1.12+).
+				ResourceName:      "altertable_catalog.test",
+				ImportState:       true,
+				ImportStateKind:   resource.ImportBlockWithResourceIdentity,
+				ImportStateVerify: true,
+			},
+		},
 	})
 }
 

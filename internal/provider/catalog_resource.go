@@ -8,6 +8,7 @@ import (
 	"github.com/altertable/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
@@ -21,9 +22,28 @@ var (
 	_ resource.Resource                     = (*CatalogResource)(nil)
 	_ resource.ResourceWithConfigure        = (*CatalogResource)(nil)
 	_ resource.ResourceWithImportState      = (*CatalogResource)(nil)
+	_ resource.ResourceWithIdentity         = (*CatalogResource)(nil)
 	_ resource.ResourceWithConfigValidators = (*CatalogResource)(nil)
 	_ resource.ResourceWithValidateConfig   = (*CatalogResource)(nil)
 )
+
+type catalogIdentityModel struct {
+	EnvironmentID types.String `tfsdk:"environment_id"`
+	ID            types.String `tfsdk:"id"`
+}
+
+func catalogIdentity(m *catalogResourceModel) catalogIdentityModel {
+	return catalogIdentityModel{EnvironmentID: m.EnvironmentID, ID: m.ID}
+}
+
+func (r *CatalogResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = identityschema.Schema{
+		Attributes: map[string]identityschema.Attribute{
+			"environment_id": identityschema.StringAttribute{RequiredForImport: true},
+			"id":             identityschema.StringAttribute{RequiredForImport: true},
+		},
+	}
+}
 
 func NewCatalogResource() resource.Resource {
 	return &CatalogResource{}
@@ -298,6 +318,7 @@ func (r *CatalogResource) Create(ctx context.Context, req resource.CreateRequest
 		applyConnectionPreservingConfig(&plan, con)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, catalogIdentity(&plan))...)
 }
 
 func (r *CatalogResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
@@ -316,6 +337,7 @@ func (r *CatalogResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, catalogIdentity(&state))...)
 }
 
 func (r *CatalogResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
@@ -341,6 +363,7 @@ func (r *CatalogResource) Update(ctx context.Context, req resource.UpdateRequest
 		applyConnectionPreservingConfig(&plan, con)
 	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	resp.Diagnostics.Append(resp.Identity.Set(ctx, catalogIdentity(&plan))...)
 }
 
 func (r *CatalogResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -409,11 +432,22 @@ func parseCatalogImportID(s string) (env, id string, ok bool) {
 }
 
 func (r *CatalogResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	env, id, ok := parseCatalogImportID(req.ID)
-	if !ok {
-		resp.Diagnostics.AddError("Invalid import ID", "expected \"environment_id:id\"")
+	if req.ID != "" {
+		// Back-compat: "environment_id:id" colon string (CLI / older Terraform).
+		env, id, ok := parseCatalogImportID(req.ID)
+		if !ok {
+			resp.Diagnostics.AddError("Invalid import ID", "expected \"environment_id:id\"")
+			return
+		}
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), env)...)
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
 		return
 	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), env)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	var ident catalogIdentityModel
+	resp.Diagnostics.Append(req.Identity.Get(ctx, &ident)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("environment_id"), ident.EnvironmentID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), ident.ID)...)
 }
