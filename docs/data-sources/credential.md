@@ -3,12 +3,12 @@
 page_title: "altertable_credential Data Source - altertable"
 subcategory: ""
 description: |-
-  Look up credential metadata for a principal in an environment. The password is never returned.
+  Look up lakehouse credential metadata for a principal in an environment. The password is never returned.
 ---
 
 # altertable_credential (Data Source)
 
-Look up credential metadata for a principal in an environment. The password is never returned.
+Look up lakehouse credential metadata for a principal in an environment. The password is never returned.
 
 ## Example Usage
 
@@ -37,4 +37,4 @@ data "altertable_credential" "ci" {
 - `created_at` (String) Creation timestamp.
 - `default` (Boolean) Whether this is the principal's default credential.
 - `label` (String) Credential label.
-- `username` (String) Generated username.
+- `username` (String) Generated lakehouse username.

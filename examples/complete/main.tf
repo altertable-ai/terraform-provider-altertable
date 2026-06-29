@@ -37,7 +37,7 @@ resource "altertable_catalog" "analytics" {
   }
 }
 
-# ── Credentials ──────────────────────────────
+# ── Lakehouse credentials ──────────────────────────────
 
 resource "altertable_credential" "ci" {
   principal_type = "service_account"

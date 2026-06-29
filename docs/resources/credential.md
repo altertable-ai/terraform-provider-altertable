@@ -3,16 +3,17 @@
 page_title: "altertable_credential Resource - altertable"
 subcategory: ""
 description: |-
-  A login credential for a user or service account in an environment. Credentials are immutable; the password is returned only at creation.
+  A lakehouse credential (username/password) a user or service account uses to query the catalogs in an environment. Credentials are immutable; the password is returned only at creation.
 ---
 
 # altertable_credential (Resource)
 
-A login credential for a user or service account in an environment. Credentials are immutable; the password is returned only at creation.
+A lakehouse credential (username/password) a user or service account uses to query the catalogs in an environment. Credentials are immutable; the password is returned only at creation.
 
 ## Example Usage
 
 ```terraform
+# Lakehouse credential a service account uses to query the environment's catalogs.
 resource "altertable_credential" "ci" {
   principal_type = "service_account"
   principal_id   = altertable_service_account.example.id
@@ -42,9 +43,9 @@ resource "altertable_credential" "ci" {
 - `expires_at` (String) Expiry timestamp, if any.
 - `id` (String) Credential identifier.
 - `last_rotated_at` (String) Last rotation timestamp, if any.
-- `password` (String, Sensitive) Generated password. Available only at creation; never re-read from the API.
+- `password` (String, Sensitive) Generated lakehouse password. Available only at creation; never re-read from the API.
 - `revoked_at` (String) Revocation timestamp, if any.
-- `username` (String) Generated username.
+- `username` (String) Generated lakehouse username.
 
 ## Import
 

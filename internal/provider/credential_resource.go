@@ -82,7 +82,7 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 	// force replacement (rather than a hard Update error) when the user changes it.
 	labelMods := []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "A login credential for a user or service account in an environment. Credentials are immutable; the password is returned only at creation.",
+		MarkdownDescription: "A lakehouse credential (username/password) a user or service account uses to query the catalogs in an environment. Credentials are immutable; the password is returned only at creation.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{MarkdownDescription: "Credential identifier.", Computed: true, PlanModifiers: useState},
 			"principal_type": schema.StringAttribute{
@@ -94,8 +94,8 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			"principal_id":    schema.StringAttribute{MarkdownDescription: "ID of the user or service account. Changing this forces a new credential.", Required: true, PlanModifiers: forceNew},
 			"environment_id":  schema.StringAttribute{MarkdownDescription: "Environment the credential grants access to. Changing this forces a new credential.", Required: true, PlanModifiers: forceNew},
 			"label":           schema.StringAttribute{MarkdownDescription: "Human-readable label. Immutable; changing it forces a new credential.", Optional: true, Computed: true, PlanModifiers: labelMods},
-			"username":        schema.StringAttribute{MarkdownDescription: "Generated username.", Computed: true, PlanModifiers: useState},
-			"password":        schema.StringAttribute{MarkdownDescription: "Generated password. Available only at creation; never re-read from the API.", Computed: true, Sensitive: true, PlanModifiers: useState},
+			"username":        schema.StringAttribute{MarkdownDescription: "Generated lakehouse username.", Computed: true, PlanModifiers: useState},
+			"password":        schema.StringAttribute{MarkdownDescription: "Generated lakehouse password. Available only at creation; never re-read from the API.", Computed: true, Sensitive: true, PlanModifiers: useState},
 			"default":         schema.BoolAttribute{MarkdownDescription: "Whether this is the principal's default credential.", Computed: true},
 			"active":          schema.BoolAttribute{MarkdownDescription: "Whether the credential is active.", Computed: true},
 			"created_at":      schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true, PlanModifiers: useState},

@@ -44,7 +44,7 @@ func (d *CredentialDataSource) Metadata(_ context.Context, req datasource.Metada
 
 func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Look up credential metadata for a principal in an environment. The password is never returned.",
+		MarkdownDescription: "Look up lakehouse credential metadata for a principal in an environment. The password is never returned.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{MarkdownDescription: "Credential identifier to look up.", Required: true},
 			"principal_type": schema.StringAttribute{
@@ -55,7 +55,7 @@ func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequ
 			"principal_id":   schema.StringAttribute{MarkdownDescription: "ID of the user or service account.", Required: true},
 			"environment_id": schema.StringAttribute{MarkdownDescription: "Environment ID.", Required: true},
 			"label":          schema.StringAttribute{MarkdownDescription: "Credential label.", Computed: true},
-			"username":       schema.StringAttribute{MarkdownDescription: "Generated username.", Computed: true},
+			"username":       schema.StringAttribute{MarkdownDescription: "Generated lakehouse username.", Computed: true},
 			"default":        schema.BoolAttribute{MarkdownDescription: "Whether this is the principal's default credential.", Computed: true},
 			"active":         schema.BoolAttribute{MarkdownDescription: "Whether the credential is active.", Computed: true},
 			"created_at":     schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true},
