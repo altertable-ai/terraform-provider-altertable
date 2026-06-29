@@ -1,0 +1,1 @@
+terraform import altertable_service_account.ci sa_abc123

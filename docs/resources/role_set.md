@@ -3,12 +3,12 @@
 page_title: "altertable_role_set Resource - altertable"
 subcategory: ""
 description: |-
-  The complete set of role grants for a single principal (user or service account).
+  Not yet implemented — the Altertable REST API does not yet expose role sets, so terraform apply will fail until it does. The complete set of role grants for a single principal (user or service account).
 ---
 
 # altertable_role_set (Resource)
 
-The complete set of role grants for a single principal (user or service account).
+**Not yet implemented** — the Altertable REST API does not yet expose role sets, so `terraform apply` will fail until it does. The complete set of role grants for a single principal (user or service account).
 
 ## Example Usage
 

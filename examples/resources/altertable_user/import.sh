@@ -1,0 +1,1 @@
+terraform import altertable_user.alice usr_abc123
