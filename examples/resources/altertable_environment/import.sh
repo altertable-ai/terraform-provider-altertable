@@ -1,1 +1,0 @@
-terraform import altertable_environment.production env_abc123

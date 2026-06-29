@@ -232,12 +232,11 @@ Import is supported using the following syntax:
 In Terraform v1.12.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `identity` attribute, for example:
 
 ```terraform
-# Terraform 1.12+: import by identity (preferred — typed, no delimiter parsing).
 import {
   to = altertable_catalog.warehouse
   identity = {
-    environment_id = "env_abc123"
-    id             = "db_def456"
+    environment_id = "7d3e1b9a-2c4f-4a6b-9e8d-5f0a1b2c3d4e"
+    id             = "c0a8011e-9f3b-4d2a-b1c7-6e5d4f3a2b1c"
   }
 }
 ```
@@ -249,10 +248,3 @@ import {
 
 - `environment_id` (String)
 - `id` (String)
-
-The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
-
-```shell
-# Catalogs are imported as "environment_id:id".
-terraform import altertable_catalog.warehouse env_abc123:db_def456
-```

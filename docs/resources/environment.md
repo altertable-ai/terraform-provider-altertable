@@ -49,7 +49,7 @@ In Terraform v1.12.0 and later, the [`import` block](https://developer.hashicorp
 import {
   to = altertable_environment.production
   identity = {
-    id = "env_abc123"
+    id = "7d3e1b9a-2c4f-4a6b-9e8d-5f0a1b2c3d4e"
   }
 }
 ```
@@ -60,9 +60,3 @@ import {
 #### Required
 
 - `id` (String)
-
-The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
-
-```shell
-terraform import altertable_environment.production env_abc123
-```

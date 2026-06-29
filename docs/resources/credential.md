@@ -53,14 +53,13 @@ Import is supported using the following syntax:
 In Terraform v1.12.0 and later, the [`import` block](https://developer.hashicorp.com/terraform/language/import) can be used with the `identity` attribute, for example:
 
 ```terraform
-# Terraform 1.12+: import by identity (preferred — typed, no delimiter parsing).
 import {
   to = altertable_credential.ci
   identity = {
     principal_type = "service_account"
-    principal_id   = "sa_abc"
-    environment_id = "env_def"
-    id             = "cred_ghi"
+    principal_id   = "3f9c2d18-6b4a-4e7f-8a1d-2c5b9e0f7a6d"
+    environment_id = "7d3e1b9a-2c4f-4a6b-9e8d-5f0a1b2c3d4e"
+    id             = "a4b8e6d0-1f2c-4b3a-9d8e-7c6b5a4f3e2d"
   }
 }
 ```
@@ -74,10 +73,3 @@ import {
 - `id` (String)
 - `principal_id` (String)
 - `principal_type` (String)
-
-The [`terraform import` command](https://developer.hashicorp.com/terraform/cli/commands/import) can be used, for example:
-
-```shell
-# Credentials are imported as "principal_type:principal_id:environment_id:id".
-terraform import altertable_credential.ci service_account:sa_abc:env_def:cred_ghi
-```
