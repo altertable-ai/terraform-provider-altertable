@@ -12,11 +12,11 @@ func TestDatabaseCRUDPaths(t *testing.T) {
 	var paths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.Method+" "+r.URL.Path)
-		switch {
-		case r.Method == http.MethodPost:
+		switch r.Method {
+		case http.MethodPost:
 			w.WriteHeader(http.StatusCreated)
 			_, _ = io.WriteString(w, `{"database":{"id":"db_1","name":"Main","slug":"main"}}`)
-		case r.Method == http.MethodDelete:
+		case http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			_, _ = io.WriteString(w, `{"database":{"id":"db_1","name":"Main","slug":"main"}}`)

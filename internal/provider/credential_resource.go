@@ -78,8 +78,8 @@ func (r *CredentialResource) Metadata(_ context.Context, req resource.MetadataRe
 func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	forceNew := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	useState := []planmodifier.String{stringplanmodifier.UseStateForUnknown()}
-	// label is immutable but user-settable: keep server-assigned values stable, and
-	// force replacement (rather than a hard Update error) when the user changes it.
+	// label is user-settable, but the API has no credential update endpoint, so changing
+	// it forces replacement; UseStateForUnknown keeps the server-assigned value stable.
 	labelMods := []planmodifier.String{stringplanmodifier.UseStateForUnknown(), stringplanmodifier.RequiresReplace()}
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "A lakehouse credential (username/password) a user or service account uses to query the catalogs in an environment. Credentials are immutable; the password is returned only at creation.",
@@ -93,7 +93,7 @@ func (r *CredentialResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"principal_id":    schema.StringAttribute{MarkdownDescription: "ID of the user or service account. Changing this forces a new credential.", Required: true, PlanModifiers: forceNew},
 			"environment_id":  schema.StringAttribute{MarkdownDescription: "Environment the credential grants access to. Changing this forces a new credential.", Required: true, PlanModifiers: forceNew},
-			"label":           schema.StringAttribute{MarkdownDescription: "Human-readable label. Immutable; changing it forces a new credential.", Optional: true, Computed: true, PlanModifiers: labelMods},
+			"label":           schema.StringAttribute{MarkdownDescription: "Human-readable label. The API has no credential update endpoint, so changing it forces replacement — which mints a new password and revokes the old one.", Optional: true, Computed: true, PlanModifiers: labelMods},
 			"username":        schema.StringAttribute{MarkdownDescription: "Generated lakehouse username.", Computed: true, PlanModifiers: useState},
 			"password":        schema.StringAttribute{MarkdownDescription: "Generated lakehouse password. Available only at creation; never re-read from the API.", Computed: true, Sensitive: true, PlanModifiers: useState},
 			"default":         schema.BoolAttribute{MarkdownDescription: "Whether this is the principal's default credential.", Computed: true},
@@ -154,7 +154,8 @@ func (r *CredentialResource) Read(ctx context.Context, req resource.ReadRequest,
 		resp.Diagnostics.AddError("Error reading credential", err.Error())
 		return
 	}
-	// password is write-once and never returned; keep prior state value.
+	// The API returns every field except the password (write-once at creation), so
+	// applyCredential refreshes all of them and leaves the prior password value in place.
 	applyCredential(&state, cred)
 	resp.Diagnostics.Append(resp.State.Set(ctx, state)...)
 	resp.Diagnostics.Append(resp.Identity.Set(ctx, credentialIdentity(&state))...)
@@ -187,8 +188,8 @@ func (r *CredentialResource) Delete(ctx context.Context, req resource.DeleteRequ
 // parseCredentialImportID splits the back-compat
 // "principal_type:principal_id:environment_id:id" import string. All four
 // segments must be non-empty.
-func parseCredentialImportID(s string) (principalType, principalID, env, id string, ok bool) {
-	parts := strings.Split(s, ":")
+func parseCredentialImportID(importID string) (principalType, principalID, env, id string, ok bool) {
+	parts := strings.Split(importID, ":")
 	if len(parts) != 4 {
 		return "", "", "", "", false
 	}

@@ -106,11 +106,9 @@ func TestPutRoleSetIssuesPutWithRolesBody(t *testing.T) {
 	}
 }
 
-func TestDeleteRoleSetPutsEmptyRolesArray(t *testing.T) {
-	var gotMethod string
+func TestPutRoleSetSerializesNilGrantsAsEmptyArray(t *testing.T) {
 	var gotBody map[string]json.RawMessage
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotMethod = r.Method
 		b, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(b, &gotBody)
 		_, _ = io.WriteString(w, `{"role_assignments":[]}`)
@@ -118,13 +116,10 @@ func TestDeleteRoleSetPutsEmptyRolesArray(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "k", "test")
-	if err := c.DeleteRoleSet(context.Background(), PrincipalRef{UserID: "u_1"}); err != nil {
+	if _, err := c.PutRoleSet(context.Background(), PrincipalRef{UserID: "u_1"}, nil); err != nil {
 		t.Fatalf("err: %s", err)
 	}
-	if gotMethod != http.MethodPut {
-		t.Errorf("method = %q, want PUT", gotMethod)
-	}
-	// roles must be [] not null
+	// roles must serialize as [] not null so an empty grant set clears assignments.
 	rolesRaw, ok := gotBody["roles"]
 	if !ok {
 		t.Fatal("body missing 'roles' key")

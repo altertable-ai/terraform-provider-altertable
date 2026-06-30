@@ -12,11 +12,11 @@ func TestConnectionCRUDPaths(t *testing.T) {
 	var paths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.Method+" "+r.URL.Path)
-		switch {
-		case r.Method == http.MethodPost:
+		switch r.Method {
+		case http.MethodPost:
 			w.WriteHeader(http.StatusCreated)
 			_, _ = io.WriteString(w, `{"connection":{"id":"con_1","name":"PG","slug":"pg","engine":"postgres"}}`)
-		case r.Method == http.MethodDelete:
+		case http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			_, _ = io.WriteString(w, `{"connection":{"id":"con_1","name":"PG","slug":"pg","engine":"postgres"}}`)

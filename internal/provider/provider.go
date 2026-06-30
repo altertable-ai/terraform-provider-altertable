@@ -110,7 +110,6 @@ func (p *AltertableProvider) Configure(ctx context.Context, req provider.Configu
 
 	c := client.NewClient(baseURL, apiKey, p.version)
 
-	// Validate the key now (GET /whoami) so a bad key fails fast at plan/apply
 	resp.Diagnostics.Append(validateCredentials(ctx, c)...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -120,9 +119,6 @@ func (p *AltertableProvider) Configure(ctx context.Context, req provider.Configu
 	resp.ResourceData = c
 }
 
-// validateCredentials calls /whoami and turns auth failures into clear, actionable
-// diagnostics: 401 = invalid/expired key, 403 = key lacks management API access,
-// anything else = the API was unreachable or errored.
 func validateCredentials(ctx context.Context, c *client.Client) diag.Diagnostics {
 	var diags diag.Diagnostics
 	if _, err := c.Whoami(ctx); err != nil {

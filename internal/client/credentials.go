@@ -6,8 +6,9 @@ import (
 	"net/http"
 )
 
-// credentialBasePath builds the principal-scoped credentials path.
-// principalType is "user" or "service_account".
+// credentialBasePath e.g.
+// /users/2f1b9c4e-7a3d-4b8e-9c1a-5d6e7f8a9b0c/environments/8c7d6e5f-4a3b-2c1d-0e9f-8a7b6c5d4e3f/credentials or
+// /service_accounts/a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d/environments/8c7d6e5f-4a3b-2c1d-0e9f-8a7b6c5d4e3f/credentials.
 func credentialBasePath(principalType, principalID, envID string) (string, error) {
 	switch principalType {
 	case "user":
@@ -19,33 +20,33 @@ func credentialBasePath(principalType, principalID, envID string) (string, error
 	}
 }
 
-// CreateCredential: POST {base} — returns the credential and the one-time password.
-func (c *Client) CreateCredential(ctx context.Context, principalType, principalID, envID string, in CreateCredentialRequest) (*Credential, string, error) {
+// POST {base} — returns the credential and the one-time password.
+func (c *Client) CreateCredential(ctx context.Context, principalType, principalID, envID string, params CreateCredentialRequest) (*Credential, string, error) {
 	base, err := credentialBasePath(principalType, principalID, envID)
 	if err != nil {
 		return nil, "", err
 	}
-	resp, err := doJSON[CreateCredentialResponse](ctx, c, http.MethodPost, base, in)
+	resp, err := request[CreateCredentialResponse](ctx, c, http.MethodPost, base, params)
 	if err != nil {
 		return nil, "", err
 	}
 	return &resp.Credential, resp.Password, nil
 }
 
-// GetCredential: GET {base}/{id} — metadata only, never the password.
+// GET {base}/{id} — metadata only, never the password.
 func (c *Client) GetCredential(ctx context.Context, principalType, principalID, envID, id string) (*Credential, error) {
 	base, err := credentialBasePath(principalType, principalID, envID)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := doJSON[CredentialResponse](ctx, c, http.MethodGet, base+"/"+id, nil)
+	resp, err := request[CredentialResponse](ctx, c, http.MethodGet, base+"/"+id, nil)
 	if err != nil {
 		return nil, err
 	}
 	return &resp.Credential, nil
 }
 
-// RevokeCredential: DELETE {base}/{id}
+// DELETE {base}/{id}
 func (c *Client) RevokeCredential(ctx context.Context, principalType, principalID, envID, id string) error {
 	base, err := credentialBasePath(principalType, principalID, envID)
 	if err != nil {

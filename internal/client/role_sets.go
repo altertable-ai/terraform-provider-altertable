@@ -32,21 +32,20 @@ func (p PrincipalRef) id() string {
 	return p.ServiceAccountID
 }
 
-// GetRoleSet: GET /{users|service_accounts}/{id}/role_assignments
+// GET /{users|service_accounts}/{id}/role_assignments
 func (c *Client) GetRoleSet(ctx context.Context, p PrincipalRef) (*RoleSet, error) {
 	path, err := roleAssignmentsPath(p)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := doJSON[roleAssignmentsResponse](ctx, c, http.MethodGet, path, nil)
+	resp, err := request[roleAssignmentsResponse](ctx, c, http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
 	return &RoleSet{PrincipalID: p.id(), Grants: resp.RoleAssignments}, nil
 }
 
-// PutRoleSet replaces the full set of role assignments (idempotent):
-// PUT /{users|service_accounts}/{id}/role_assignments
+// PUT /{users|service_accounts}/{id}/role_assignments — replaces the full set (idempotent).
 func (c *Client) PutRoleSet(ctx context.Context, p PrincipalRef, grants []RoleGrant) (*RoleSet, error) {
 	path, err := roleAssignmentsPath(p)
 	if err != nil {
@@ -55,20 +54,9 @@ func (c *Client) PutRoleSet(ctx context.Context, p PrincipalRef, grants []RoleGr
 	if grants == nil {
 		grants = []RoleGrant{}
 	}
-	resp, err := doJSON[roleAssignmentsResponse](ctx, c, http.MethodPut, path, updateRoleAssignmentsRequest{Roles: grants})
+	resp, err := request[roleAssignmentsResponse](ctx, c, http.MethodPut, path, updateRoleAssignmentsRequest{Roles: grants})
 	if err != nil {
 		return nil, err
 	}
 	return &RoleSet{PrincipalID: p.id(), Grants: resp.RoleAssignments}, nil
-}
-
-// DeleteRoleSet clears all role assignments. The API has no DELETE for
-// role_assignments, so this PUTs an empty set.
-func (c *Client) DeleteRoleSet(ctx context.Context, p PrincipalRef) error {
-	path, err := roleAssignmentsPath(p)
-	if err != nil {
-		return err
-	}
-	_, err = doJSON[roleAssignmentsResponse](ctx, c, http.MethodPut, path, updateRoleAssignmentsRequest{Roles: []RoleGrant{}})
-	return err
 }

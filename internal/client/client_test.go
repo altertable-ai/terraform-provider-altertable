@@ -64,7 +64,7 @@ func TestDoRequestDecodesWrappedError(t *testing.T) {
 	}
 }
 
-func TestDoJSONDecodesEnvelope(t *testing.T) {
+func TestRequestDecodesEnvelope(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = io.WriteString(w, `{"environment":{"id":"env_1","slug":"prod","name":"Production"}}`)
@@ -72,7 +72,7 @@ func TestDoJSONDecodesEnvelope(t *testing.T) {
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "secret", "test")
-	got, err := doJSON[EnvironmentResponse](context.Background(), c, http.MethodGet, "/environments/env_1", nil)
+	got, err := request[EnvironmentResponse](context.Background(), c, http.MethodGet, "/environments/env_1", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}

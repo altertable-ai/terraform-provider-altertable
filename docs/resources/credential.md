@@ -33,7 +33,7 @@ resource "altertable_credential" "ci" {
 
 ### Optional
 
-- `label` (String) Human-readable label. Immutable; changing it forces a new credential.
+- `label` (String) Human-readable label. The API has no credential update endpoint, so changing it forces replacement — which mints a new password and revokes the old one.
 
 ### Read-Only
 

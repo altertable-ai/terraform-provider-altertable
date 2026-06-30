@@ -57,8 +57,6 @@ func (r *CatalogResource) Metadata(_ context.Context, req resource.MetadataReque
 	resp.TypeName = req.ProviderTypeName + "_catalog"
 }
 
-// sshTunnelAttribute returns the nested ssh_tunnel block shared by the
-// standard/mysql/postgres connection configs.
 func sshTunnelAttribute() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		MarkdownDescription: "Optional SSH bastion tunnel used to reach the database.",
@@ -391,28 +389,53 @@ func (r *CatalogResource) readCatalog(ctx context.Context, state *catalogResourc
 	env, id := state.EnvironmentID.ValueString(), state.ID.ValueString()
 	engine := state.Engine.ValueString()
 
-	if engine == "" || isDatabaseEngine(engine) {
-		db, err := r.client.GetDatabase(ctx, env, id)
-		if err == nil {
+	// Known engine: read only the matching endpoint.
+	if engine != "" {
+		if isDatabaseEngine(engine) {
+			db, err := r.client.GetDatabase(ctx, env, id)
+			if err != nil {
+				if isNotFound(err) {
+					return false, nil
+				}
+				return false, err
+			}
 			state.applyDatabase(db)
 			return true, nil
 		}
-		if !isNotFound(err) {
+		con, err := r.client.GetConnection(ctx, env, id)
+		if err != nil {
+			if isNotFound(err) {
+				return false, nil
+			}
 			return false, err
 		}
-		if engine != "" { // engine known to be a DB, 404 => gone
-			return false, nil
-		}
+		applyConnectionPreservingConfig(state, con)
+		return true, nil
 	}
-	con, err := r.client.GetConnection(ctx, env, id)
-	if err != nil {
-		if isNotFound(err) {
-			return false, nil
-		}
-		return false, err
+
+	// Empty engine (fresh import): probe both endpoints and refuse to guess if an id
+	// resolves to both a database and a connection.
+	db, dbErr := r.client.GetDatabase(ctx, env, id)
+	if dbErr != nil && !isNotFound(dbErr) {
+		return false, dbErr
 	}
-	applyConnectionPreservingConfig(state, con)
-	return true, nil
+	con, conErr := r.client.GetConnection(ctx, env, id)
+	if conErr != nil && !isNotFound(conErr) {
+		return false, conErr
+	}
+	dbFound, conFound := dbErr == nil, conErr == nil
+	switch {
+	case dbFound && conFound:
+		return false, fmt.Errorf("ambiguous catalog %q in environment %q: it matches both a database and a connection; set engine to disambiguate the import", id, env)
+	case dbFound:
+		state.applyDatabase(db)
+		return true, nil
+	case conFound:
+		applyConnectionPreservingConfig(state, con)
+		return true, nil
+	default:
+		return false, nil
+	}
 }
 
 // applyConnectionPreservingConfig maps server fields but keeps write-only config
@@ -421,10 +444,8 @@ func applyConnectionPreservingConfig(m *catalogResourceModel, con *client.Connec
 	m.applyConnection(con)
 }
 
-// parseCatalogImportID splits the "environment_id:id" back-compat import string.
-// Only the first colon splits, so an id containing ':' is preserved.
-func parseCatalogImportID(s string) (env, id string, ok bool) {
-	parts := strings.SplitN(s, ":", 2)
+func parseCatalogImportID(importID string) (env, id string, ok bool) {
+	parts := strings.SplitN(importID, ":", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", "", false
 	}

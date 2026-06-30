@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-// DefaultBaseURL is the production Altertable Management REST API root.
 const DefaultBaseURL = "https://app.altertable.ai/rest/v1"
 
 // ErrNotImplemented is returned by every entity method until the REST API is wired up.
@@ -107,9 +106,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body, out a
 	return nil
 }
 
-// doJSON issues a request and decodes the JSON response into T. It keeps every
-// entity method to a single line: doJSON[EnvironmentResponse](ctx, c, "POST", "/environments", in).
-func doJSON[T any](ctx context.Context, c *Client, method, path string, body any) (T, error) {
+func request[T any](ctx context.Context, c *Client, method, path string, body any) (T, error) {
 	var out T
 	err := c.doRequest(ctx, method, path, body, &out)
 	return out, err

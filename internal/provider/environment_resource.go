@@ -135,13 +135,13 @@ func (r *EnvironmentResource) Read(ctx context.Context, req resource.ReadRequest
 	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), state.ID)...)
 }
 
-// Update is unreachable: every attribute is RequiresReplace. Implemented to satisfy
-// the resource.Resource interface.
-func (r *EnvironmentResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var plan environmentResourceModel
-	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
-	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
-	resp.Diagnostics.Append(resp.Identity.SetAttribute(ctx, path.Root("id"), plan.ID)...)
+// Update is unreachable: every attribute is RequiresReplace, so Terraform never plans an
+// in-place update. It hard-errors as a defensive backstop and to satisfy the interface.
+func (r *EnvironmentResource) Update(_ context.Context, _ resource.UpdateRequest, resp *resource.UpdateResponse) {
+	resp.Diagnostics.AddError(
+		"Environments are immutable",
+		"The Altertable API has no environment update endpoint. Change an environment by recreating it.",
+	)
 }
 
 func (r *EnvironmentResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
