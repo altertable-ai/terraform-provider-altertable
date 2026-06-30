@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/altertable/terraform-provider-altertable/internal/client"
+	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"

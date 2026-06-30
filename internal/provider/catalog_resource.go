@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/altertable/terraform-provider-altertable/internal/client"
+	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/altertable/terraform-provider-altertable/internal/provider"
+	"github.com/altertable-ai/terraform-provider-altertable/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
@@ -18,7 +18,7 @@ func main() {
 	flag.Parse()
 
 	err := providerserver.Serve(context.Background(), provider.New(version), providerserver.ServeOpts{
-		Address: "registry.terraform.io/altertable/altertable",
+		Address: "registry.terraform.io/altertable-ai/altertable",
 		Debug:   debug,
 	})
 	if err != nil {

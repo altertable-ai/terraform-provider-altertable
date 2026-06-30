@@ -1,4 +1,4 @@
-module github.com/altertable/terraform-provider-altertable
+module github.com/altertable-ai/terraform-provider-altertable
 
 go 1.25.8
 

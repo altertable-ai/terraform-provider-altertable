@@ -33,7 +33,7 @@ local build so `terraform plan` skips `terraform init` downloads:
 ```hcl
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/altertable/altertable" = "REPLACE_WITH_OUTPUT_OF: go env GOPATH then /bin"
+    "registry.terraform.io/altertable-ai/altertable" = "REPLACE_WITH_OUTPUT_OF: go env GOPATH then /bin"
   }
   direct {}
 }
