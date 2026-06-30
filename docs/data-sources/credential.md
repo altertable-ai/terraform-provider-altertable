@@ -3,18 +3,21 @@
 page_title: "altertable_credential Data Source - altertable"
 subcategory: ""
 description: |-
-  Look up credential metadata by id. The password is never returned.
+  Look up lakehouse credential metadata for a principal in an environment. The password is never returned.
 ---
 
 # altertable_credential (Data Source)
 
-Look up credential metadata by id. The password is never returned.
+Look up lakehouse credential metadata for a principal in an environment. The password is never returned.
 
 ## Example Usage
 
 ```terraform
-data "altertable_credential" "dbt_prod" {
-  id = "cred_123"
+data "altertable_credential" "ci" {
+  principal_type = "service_account"
+  principal_id   = "019d7223-796e-7917-8d7e-ca256daa7979"
+  environment_id = "019d7223-796e-7917-8d7e-ca256daa7980"
+  id             = "019d7223-796e-7917-8d7e-ca256daa7981"
 }
 ```
 
@@ -23,12 +26,15 @@ data "altertable_credential" "dbt_prod" {
 
 ### Required
 
+- `environment_id` (String) Environment ID.
 - `id` (String) Credential identifier to look up.
+- `principal_id` (String) ID of the user or service account.
+- `principal_type` (String) Principal type: `user` or `service_account`.
 
 ### Read-Only
 
+- `active` (Boolean) Whether the credential is active.
 - `created_at` (String) Creation timestamp.
-- `environment_id` (String) Environment ID.
+- `default` (Boolean) Whether this is the principal's default credential.
 - `label` (String) Credential label.
-- `service_account_id` (String) Owning service account ID.
-- `username` (String) Generated username.
+- `username` (String) Generated lakehouse username.

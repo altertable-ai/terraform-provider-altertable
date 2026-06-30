@@ -23,8 +23,7 @@ func TestDoRequestSuccessSetsAuthAndDecodes(t *testing.T) {
 
 	c := NewClient(srv.URL, "secret", "test")
 	var out Environment
-	err := c.doRequest(context.Background(), http.MethodGet, "/v1/environments/env_1", nil, &out)
-	if err != nil {
+	if err := c.doRequest(context.Background(), http.MethodGet, "/environments/env_1", nil, &out); err != nil {
 		t.Fatalf("unexpected error: %s", err)
 	}
 	if gotAuth != "Bearer secret" {
@@ -34,22 +33,22 @@ func TestDoRequestSuccessSetsAuthAndDecodes(t *testing.T) {
 		t.Errorf("Accept = %q, want application/json", gotAccept)
 	}
 	if gotUserAgent != "terraform-provider-altertable/test" {
-		t.Errorf("User-Agent = %q, want %q", gotUserAgent, "terraform-provider-altertable/test")
+		t.Errorf("User-Agent = %q", gotUserAgent)
 	}
 	if out.ID != "env_1" || out.Slug != "prod" || out.Name != "Production" {
 		t.Errorf("decoded = %+v", out)
 	}
 }
 
-func TestDoRequestNon2xxReturnsAPIError(t *testing.T) {
+func TestDoRequestDecodesWrappedError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		_, _ = io.WriteString(w, `{"message":"not found"}`)
+		_, _ = io.WriteString(w, `{"error":{"code":"not_found","message":"no such environment","details":["x"]}}`)
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.URL, "secret", "test")
-	err := c.doRequest(context.Background(), http.MethodGet, "/v1/environments/nope", nil, nil)
+	err := c.doRequest(context.Background(), http.MethodGet, "/environments/nope", nil, nil)
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) {
 		t.Fatalf("error = %T, want *APIError", err)
@@ -57,12 +56,27 @@ func TestDoRequestNon2xxReturnsAPIError(t *testing.T) {
 	if apiErr.StatusCode != http.StatusNotFound {
 		t.Errorf("StatusCode = %d, want 404", apiErr.StatusCode)
 	}
+	if apiErr.Code != "not_found" {
+		t.Errorf("Code = %q, want not_found", apiErr.Code)
+	}
+	if apiErr.Message != "no such environment" {
+		t.Errorf("Message = %q", apiErr.Message)
+	}
 }
 
-func TestStubReturnsErrNotImplemented(t *testing.T) {
-	c := NewClient(DefaultBaseURL, "secret", "test")
-	_, err := c.GetEnvironment(context.Background(), "env_1")
-	if !errors.Is(err, ErrNotImplemented) {
-		t.Fatalf("error = %v, want ErrNotImplemented", err)
+func TestRequestDecodesEnvelope(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"environment":{"id":"env_1","slug":"prod","name":"Production"}}`)
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "secret", "test")
+	got, err := request[EnvironmentResponse](context.Background(), c, http.MethodGet, "/environments/env_1", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if got.Environment.ID != "env_1" {
+		t.Errorf("decoded = %+v", got)
 	}
 }

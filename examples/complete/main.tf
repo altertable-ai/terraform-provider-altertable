@@ -2,62 +2,51 @@ provider "altertable" {
   api_key = var.altertable_management_api_key
 }
 
-# ── Data sources ─────────────────────────────
+# ── Environment ───────────────────────────────
 
-data "altertable_environment" "production" {
-  slug = "production"
+resource "altertable_environment" "production" {
+  name           = "Production"
+  cloud_provider = "aws"
 }
 
-data "altertable_environment" "staging" {
-  slug = "staging"
+# ── Service account ──────────────────────────
+
+resource "altertable_service_account" "ci" {
+  label = "CI Deploy"
 }
 
-data "altertable_catalog" "analytics" {
-  environment_id = data.altertable_environment.production.id
-  slug           = "analytics"
+# ── Catalogs ─────────────────────────────────
+
+resource "altertable_catalog" "warehouse" {
+  environment_id = altertable_environment.production.id
+  engine         = "altertable"
+  name           = "Warehouse"
 }
 
-data "altertable_user" "alice" {
-  email = "alice@acme.com"
+resource "altertable_catalog" "analytics" {
+  environment_id = altertable_environment.production.id
+  engine         = "postgres"
+  name           = "Analytics"
+
+  postgres_config = {
+    host     = "db.example.com"
+    port     = 5432
+    database = "analytics"
+    username = "altertable"
+    password = var.pg_password
+  }
 }
 
-# ── Service account ─────────────────────────
+# ── Lakehouse credentials ──────────────────────────────
 
-resource "altertable_service_account" "dbt" {
-  name = "dbt Cloud"
+resource "altertable_credential" "ci" {
+  principal_type = "service_account"
+  principal_id   = altertable_service_account.ci.id
+  environment_id = altertable_environment.production.id
+  label          = "CI"
 }
 
-# ── Roles ───────────────────────────────────
-
-resource "altertable_role_set" "dbt" {
-  service_account_id = altertable_service_account.dbt.id
-
-  roles = [
-    { role = "organization:member" },
-    { role = "environment:writer", resource_id = data.altertable_environment.production.id },
-    { role = "environment:reader", resource_id = data.altertable_environment.staging.id },
-  ]
-}
-
-resource "altertable_role_set" "alice" {
-  user_id = data.altertable_user.alice.id
-
-  roles = [
-    { role = "organization:member" },
-    { role = "environment:member", resource_id = data.altertable_environment.production.id },
-    { role = "catalog:writer", resource_id = data.altertable_catalog.analytics.id },
-  ]
-}
-
-# ── Credentials ─────────────────────────────
-
-resource "altertable_credential" "dbt_prod" {
-  service_account_id = altertable_service_account.dbt.id
-  environment_id     = data.altertable_environment.production.id
-  label              = "dbt Postgres"
-}
-
-output "dbt_password" {
-  value     = altertable_credential.dbt_prod.password
+output "ci_password" {
+  value     = altertable_credential.ci.password
   sensitive = true
 }

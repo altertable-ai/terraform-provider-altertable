@@ -3,19 +3,19 @@
 page_title: "altertable_catalog Data Source - altertable"
 subcategory: ""
 description: |-
-  Look up a catalog by environment and slug.
+  Look up a catalog by environment and ID (or slug), probing databases then connections.
 ---
 
 # altertable_catalog (Data Source)
 
-Look up a catalog by environment and slug.
+Look up a catalog by environment and ID (or slug), probing databases then connections.
 
 ## Example Usage
 
 ```terraform
-data "altertable_catalog" "analytics" {
-  environment_id = data.altertable_environment.production.id
-  slug           = "analytics"
+data "altertable_catalog" "warehouse" {
+  environment_id = altertable_environment.production.id
+  id             = "warehouse"
 }
 ```
 
@@ -25,9 +25,17 @@ data "altertable_catalog" "analytics" {
 ### Required
 
 - `environment_id` (String) Parent environment ID.
-- `slug` (String) Catalog slug to look up.
+- `id` (String) Catalog ID (or slug) to look up.
 
 ### Read-Only
 
-- `id` (String) Catalog identifier.
+- `bucket_id` (String) Storage bucket ID (databases only).
+- `built_in` (Boolean) Whether this is a built-in database.
+- `catalog` (String) Underlying catalog identifier.
+- `description` (String) Optional description.
+- `engine` (String) Catalog engine (`altertable` for native databases).
 - `name` (String) Human-readable catalog name.
+- `read_only` (Boolean) Whether the catalog is read-only.
+- `slug` (String) URL-safe catalog slug.
+- `snapshot_retention_days` (Number) Snapshot retention in days (databases only).
+- `tags` (List of String) List of tags.

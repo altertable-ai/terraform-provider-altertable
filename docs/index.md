@@ -23,4 +23,4 @@ provider "altertable" {
 ### Optional
 
 - `api_key` (String, Sensitive) Altertable management API key. May also be set with the `ALTERTABLE_API_KEY` environment variable.
-- `base_url` (String) Base URL of the Altertable management API. May also be set with the `ALTERTABLE_API_URL` environment variable. Defaults to `https://app.altertable.ai`.
+- `base_url` (String) Base URL of the Altertable management API. May also be set with the `ALTERTABLE_API_URL` environment variable. Defaults to `https://app.altertable.ai/rest/v1`.

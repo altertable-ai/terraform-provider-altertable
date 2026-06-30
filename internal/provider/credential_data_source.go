@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"github.com/altertable/terraform-provider-altertable/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -25,12 +27,15 @@ type CredentialDataSource struct {
 
 // credentialDataSourceModel deliberately has no password field: the secret is never readable.
 type credentialDataSourceModel struct {
-	ID               types.String `tfsdk:"id"`
-	ServiceAccountID types.String `tfsdk:"service_account_id"`
-	EnvironmentID    types.String `tfsdk:"environment_id"`
-	Label            types.String `tfsdk:"label"`
-	Username         types.String `tfsdk:"username"`
-	CreatedAt        types.String `tfsdk:"created_at"`
+	ID            types.String `tfsdk:"id"`
+	PrincipalType types.String `tfsdk:"principal_type"`
+	PrincipalID   types.String `tfsdk:"principal_id"`
+	EnvironmentID types.String `tfsdk:"environment_id"`
+	Label         types.String `tfsdk:"label"`
+	Username      types.String `tfsdk:"username"`
+	Default       types.Bool   `tfsdk:"default"`
+	Active        types.Bool   `tfsdk:"active"`
+	CreatedAt     types.String `tfsdk:"created_at"`
 }
 
 func (d *CredentialDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -39,14 +44,21 @@ func (d *CredentialDataSource) Metadata(_ context.Context, req datasource.Metada
 
 func (d *CredentialDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Look up credential metadata by id. The password is never returned.",
+		MarkdownDescription: "Look up lakehouse credential metadata for a principal in an environment. The password is never returned.",
 		Attributes: map[string]schema.Attribute{
-			"id":                 schema.StringAttribute{MarkdownDescription: "Credential identifier to look up.", Required: true},
-			"service_account_id": schema.StringAttribute{MarkdownDescription: "Owning service account ID.", Computed: true},
-			"environment_id":     schema.StringAttribute{MarkdownDescription: "Environment ID.", Computed: true},
-			"label":              schema.StringAttribute{MarkdownDescription: "Credential label.", Computed: true},
-			"username":           schema.StringAttribute{MarkdownDescription: "Generated username.", Computed: true},
-			"created_at":         schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true},
+			"id": schema.StringAttribute{MarkdownDescription: "Credential identifier to look up.", Required: true},
+			"principal_type": schema.StringAttribute{
+				MarkdownDescription: "Principal type: `user` or `service_account`.",
+				Required:            true,
+				Validators:          []validator.String{stringvalidator.OneOf("user", "service_account")},
+			},
+			"principal_id":   schema.StringAttribute{MarkdownDescription: "ID of the user or service account.", Required: true},
+			"environment_id": schema.StringAttribute{MarkdownDescription: "Environment ID.", Required: true},
+			"label":          schema.StringAttribute{MarkdownDescription: "Credential label.", Computed: true},
+			"username":       schema.StringAttribute{MarkdownDescription: "Generated lakehouse username.", Computed: true},
+			"default":        schema.BoolAttribute{MarkdownDescription: "Whether this is the principal's default credential.", Computed: true},
+			"active":         schema.BoolAttribute{MarkdownDescription: "Whether the credential is active.", Computed: true},
+			"created_at":     schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true},
 		},
 	}
 }
@@ -69,15 +81,17 @@ func (d *CredentialDataSource) Read(ctx context.Context, req datasource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	cred, err := d.client.GetCredential(ctx, data.ID.ValueString())
+	cred, err := d.client.GetCredential(ctx,
+		data.PrincipalType.ValueString(), data.PrincipalID.ValueString(),
+		data.EnvironmentID.ValueString(), data.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading credential", err.Error())
 		return
 	}
-	data.ServiceAccountID = types.StringValue(cred.ServiceAccountID)
-	data.EnvironmentID = types.StringValue(cred.EnvironmentID)
 	data.Label = types.StringValue(cred.Label)
 	data.Username = types.StringValue(cred.Username)
+	data.Default = types.BoolValue(cred.Default)
+	data.Active = types.BoolValue(cred.Active)
 	data.CreatedAt = types.StringValue(cred.CreatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

@@ -1,29 +1,29 @@
 package client
 
-import "context"
+import (
+	"context"
+	"net/http"
+)
 
-// GetEnvironmentBySlug: GET /v1/environments?slug={slug}
-func (c *Client) GetEnvironmentBySlug(ctx context.Context, slug string) (*Environment, error) {
-	// TODO: return c.doRequest(ctx, http.MethodGet, "/v1/environments?slug="+url.QueryEscape(slug), nil, &out)
-	return nil, ErrNotImplemented
+// GET /environments/{idOrSlug} (the API accepts a UUID or a slug).
+func (c *Client) GetEnvironment(ctx context.Context, idOrSlug string) (*Environment, error) {
+	resp, err := request[EnvironmentResponse](ctx, c, http.MethodGet, "/environments/"+idOrSlug, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Environment, nil
 }
 
-// GetEnvironment: GET /v1/environments/{id}
-func (c *Client) GetEnvironment(ctx context.Context, id string) (*Environment, error) {
-	return nil, ErrNotImplemented
+// POST /environments
+func (c *Client) CreateEnvironment(ctx context.Context, params CreateEnvironmentRequest) (*Environment, error) {
+	resp, err := request[EnvironmentResponse](ctx, c, http.MethodPost, "/environments", params)
+	if err != nil {
+		return nil, err
+	}
+	return &resp.Environment, nil
 }
 
-// CreateEnvironment: POST /v1/environments
-func (c *Client) CreateEnvironment(ctx context.Context, in EnvironmentCreateInput) (*Environment, error) {
-	return nil, ErrNotImplemented
-}
-
-// UpdateEnvironment: PATCH /v1/environments/{id}
-func (c *Client) UpdateEnvironment(ctx context.Context, id string, in EnvironmentUpdateInput) (*Environment, error) {
-	return nil, ErrNotImplemented
-}
-
-// DeleteEnvironment: DELETE /v1/environments/{id}
+// DELETE /environments/{id}
 func (c *Client) DeleteEnvironment(ctx context.Context, id string) error {
-	return ErrNotImplemented
+	return c.doRequest(ctx, http.MethodDelete, "/environments/"+id, nil, nil)
 }

@@ -24,8 +24,9 @@ type ServiceAccountDataSource struct {
 }
 
 type serviceAccountDataSourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Name types.String `tfsdk:"name"`
+	ID    types.String `tfsdk:"id"`
+	Label types.String `tfsdk:"label"`
+	Slug  types.String `tfsdk:"slug"`
 }
 
 func (d *ServiceAccountDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -34,10 +35,11 @@ func (d *ServiceAccountDataSource) Metadata(_ context.Context, req datasource.Me
 
 func (d *ServiceAccountDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Look up a service account by name.",
+		MarkdownDescription: "Look up a service account by ID.",
 		Attributes: map[string]schema.Attribute{
-			"id":   schema.StringAttribute{MarkdownDescription: "Service account identifier.", Computed: true},
-			"name": schema.StringAttribute{MarkdownDescription: "Service account name to look up.", Required: true},
+			"id":    schema.StringAttribute{MarkdownDescription: "Service account ID to look up.", Required: true},
+			"label": schema.StringAttribute{MarkdownDescription: "Service account label.", Computed: true},
+			"slug":  schema.StringAttribute{MarkdownDescription: "Service account slug.", Computed: true},
 		},
 	}
 }
@@ -60,11 +62,12 @@ func (d *ServiceAccountDataSource) Read(ctx context.Context, req datasource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	sa, err := d.client.GetServiceAccountByName(ctx, data.Name.ValueString())
+	sa, err := d.client.GetServiceAccount(ctx, data.ID.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading service account", err.Error())
 		return
 	}
-	data.ID = types.StringValue(sa.ID)
+	data.Label = types.StringValue(sa.Label)
+	data.Slug = types.StringValue(sa.Slug)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

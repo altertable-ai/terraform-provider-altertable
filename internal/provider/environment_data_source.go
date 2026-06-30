@@ -24,9 +24,13 @@ type EnvironmentDataSource struct {
 }
 
 type environmentDataSourceModel struct {
-	ID   types.String `tfsdk:"id"`
-	Slug types.String `tfsdk:"slug"`
-	Name types.String `tfsdk:"name"`
+	ID                  types.String `tfsdk:"id"`
+	Slug                types.String `tfsdk:"slug"`
+	Name                types.String `tfsdk:"name"`
+	CloudProvider       types.String `tfsdk:"cloud_provider"`
+	CloudProviderRegion types.String `tfsdk:"cloud_provider_region"`
+	CreatedAt           types.String `tfsdk:"created_at"`
+	UpdatedAt           types.String `tfsdk:"updated_at"`
 }
 
 func (d *EnvironmentDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
@@ -35,11 +39,15 @@ func (d *EnvironmentDataSource) Metadata(_ context.Context, req datasource.Metad
 
 func (d *EnvironmentDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Look up an Altertable environment by slug.",
+		MarkdownDescription: "Look up an Altertable environment by slug (or ID).",
 		Attributes: map[string]schema.Attribute{
-			"id":   schema.StringAttribute{MarkdownDescription: "Environment identifier.", Computed: true},
-			"slug": schema.StringAttribute{MarkdownDescription: "Environment slug to look up.", Required: true},
-			"name": schema.StringAttribute{MarkdownDescription: "Human-readable environment name.", Computed: true},
+			"id":                    schema.StringAttribute{MarkdownDescription: "Environment identifier.", Computed: true},
+			"slug":                  schema.StringAttribute{MarkdownDescription: "Environment slug (or UUID) to look up.", Required: true},
+			"name":                  schema.StringAttribute{MarkdownDescription: "Human-readable environment name.", Computed: true},
+			"cloud_provider":        schema.StringAttribute{MarkdownDescription: "Cloud provider.", Computed: true},
+			"cloud_provider_region": schema.StringAttribute{MarkdownDescription: "Cloud provider region.", Computed: true},
+			"created_at":            schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true},
+			"updated_at":            schema.StringAttribute{MarkdownDescription: "Last update timestamp.", Computed: true},
 		},
 	}
 }
@@ -62,12 +70,17 @@ func (d *EnvironmentDataSource) Read(ctx context.Context, req datasource.ReadReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	env, err := d.client.GetEnvironmentBySlug(ctx, data.Slug.ValueString())
+	env, err := d.client.GetEnvironment(ctx, data.Slug.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Error reading environment", err.Error())
 		return
 	}
 	data.ID = types.StringValue(env.ID)
+	data.Slug = types.StringValue(env.Slug)
 	data.Name = types.StringValue(env.Name)
+	data.CloudProvider = types.StringValue(env.CloudProvider)
+	data.CloudProviderRegion = types.StringValue(env.CloudProviderRegion)
+	data.CreatedAt = types.StringValue(env.CreatedAt)
+	data.UpdatedAt = types.StringValue(env.UpdatedAt)
 	resp.Diagnostics.Append(resp.State.Set(ctx, data)...)
 }

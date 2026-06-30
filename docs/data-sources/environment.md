@@ -3,12 +3,12 @@
 page_title: "altertable_environment Data Source - altertable"
 subcategory: ""
 description: |-
-  Look up an Altertable environment by slug.
+  Look up an Altertable environment by slug (or ID).
 ---
 
 # altertable_environment (Data Source)
 
-Look up an Altertable environment by slug.
+Look up an Altertable environment by slug (or ID).
 
 ## Example Usage
 
@@ -23,9 +23,13 @@ data "altertable_environment" "production" {
 
 ### Required
 
-- `slug` (String) Environment slug to look up.
+- `slug` (String) Environment slug (or UUID) to look up.
 
 ### Read-Only
 
+- `cloud_provider` (String) Cloud provider.
+- `cloud_provider_region` (String) Cloud provider region.
+- `created_at` (String) Creation timestamp.
 - `id` (String) Environment identifier.
 - `name` (String) Human-readable environment name.
+- `updated_at` (String) Last update timestamp.
