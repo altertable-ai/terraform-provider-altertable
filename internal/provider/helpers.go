@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/altertable/terraform-provider-altertable/internal/client"
+	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
 )
 
 // isNotFound reports whether err is an Altertable 404, used to drop deleted resources from state.

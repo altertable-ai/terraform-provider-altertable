@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/altertable/terraform-provider-altertable/internal/client"
+	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 

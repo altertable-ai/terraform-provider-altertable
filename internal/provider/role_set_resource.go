@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/altertable/terraform-provider-altertable/internal/client"
+	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
