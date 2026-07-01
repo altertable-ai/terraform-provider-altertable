@@ -13,8 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 )
 
-// These acceptance tests run only when TF_ACC is set and the Altertable API plus the
-// client methods in internal/client are implemented. resource.Test skips otherwise.
+// These acceptance tests run only when TF_ACC is set; resource.Test skips them otherwise.
 
 func testAccClient() *client.Client {
 	return client.NewClient(os.Getenv("ALTERTABLE_API_URL"), os.Getenv("ALTERTABLE_API_KEY"), "test")
@@ -39,8 +38,6 @@ func checkDestroyed(resourceType string, probe func(attrs map[string]string) err
 	}
 }
 
-// catalogCheckDestroy verifies a catalog is gone from the API, choosing the database or
-// connection endpoint by engine — shared by the database and connection catalog tests.
 func catalogCheckDestroy() resource.TestCheckFunc {
 	return checkDestroyed("altertable_catalog", func(a map[string]string) error {
 		c := testAccClient()
@@ -257,7 +254,7 @@ removed {
 				Config: withRoleSet,
 				Check:  resource.TestCheckResourceAttrSet("altertable_role_set.test", "id"),
 			},
-			{Config: forgetRoleSet}, // drops role_set from state → clean auto-destroy
+			{Config: forgetRoleSet},
 		},
 	})
 }
