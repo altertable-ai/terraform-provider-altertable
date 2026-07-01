@@ -39,6 +39,20 @@ func checkDestroyed(resourceType string, probe func(attrs map[string]string) err
 	}
 }
 
+// catalogCheckDestroy verifies a catalog is gone from the API, choosing the database or
+// connection endpoint by engine — shared by the database and connection catalog tests.
+func catalogCheckDestroy() resource.TestCheckFunc {
+	return checkDestroyed("altertable_catalog", func(a map[string]string) error {
+		c := testAccClient()
+		if isDatabaseEngine(a["engine"]) {
+			_, err := c.GetDatabase(context.Background(), a["environment_id"], a["id"])
+			return err
+		}
+		_, err := c.GetConnection(context.Background(), a["environment_id"], a["id"])
+		return err
+	})
+}
+
 func TestAccEnvironmentResource_basic(t *testing.T) {
 	const config = `resource "altertable_environment" "test" {
   name                  = "Terraform Acceptance Test"
@@ -89,15 +103,7 @@ resource "altertable_catalog" "test" {
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
-		CheckDestroy: checkDestroyed("altertable_catalog", func(a map[string]string) error {
-			c := testAccClient()
-			if isDatabaseEngine(a["engine"]) {
-				_, err := c.GetDatabase(context.Background(), a["environment_id"], a["id"])
-				return err
-			}
-			_, err := c.GetConnection(context.Background(), a["environment_id"], a["id"])
-			return err
-		}),
+		CheckDestroy:             catalogCheckDestroy(),
 		Steps: []resource.TestStep{
 			{
 				Config: config,
@@ -127,6 +133,52 @@ resource "altertable_catalog" "test" {
 				ResourceName:    "altertable_catalog.test",
 				ImportState:     true,
 				ImportStateKind: resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
+func TestAccCatalogResource_postgresConnection(t *testing.T) {
+	// A connection catalog (engine != "altertable"). Credentials are intentionally fake: the
+	// backend persists the config without testing connectivity, so create succeeds. Connection
+	// config is write-only (never returned by the API), so there is no import step here.
+	const config = `resource "altertable_environment" "test" {
+  name                  = "Terraform Acceptance Test"
+  cloud_provider        = "hetzner"
+  cloud_provider_region = "fsn1"
+}
+
+resource "altertable_catalog" "test" {
+  environment_id = altertable_environment.test.id
+  engine         = "postgres"
+  name           = "Terraform Acceptance Test Postgres"
+
+  postgres_config = {
+    host     = "db.invalid.example"
+    port     = 5432
+    database = "acc_test"
+    username = "acc_test"
+    password = "not-a-real-password"
+  }
+}`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             catalogCheckDestroy(),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("altertable_catalog.test", "id"),
+					resource.TestCheckResourceAttr("altertable_catalog.test", "engine", "postgres"),
+					resource.TestCheckResourceAttr("altertable_catalog.test", "name", "Terraform Acceptance Test Postgres"),
+					resource.TestCheckResourceAttr("altertable_catalog.test", "postgres_config.host", "db.invalid.example"),
+					resource.TestCheckResourceAttrPair("altertable_catalog.test", "environment_id", "altertable_environment.test", "id"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("environment_id")),
+					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("id")),
+				},
 			},
 		},
 	})
