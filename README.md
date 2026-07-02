@@ -21,24 +21,7 @@ provider "altertable" {
 }
 ```
 
-## Local development (run without a registry)
+## Development
 
-```bash
-make install   # builds and installs the binary into $(go env GOPATH)/bin
-```
-
-Add a `~/.terraformrc` (or `$XDG_CONFIG_HOME/terraform.rc`) pointing Terraform at the
-local build so `terraform plan` skips `terraform init` downloads:
-
-```hcl
-provider_installation {
-  dev_overrides {
-    "registry.terraform.io/altertable-ai/altertable" = "REPLACE_WITH_OUTPUT_OF: go env GOPATH then /bin"
-  }
-  direct {}
-}
-```
-
-## Make targets
-
-`build`, `install`, `test`, `testacc`, `lint`, `fmt`, `docs`.
+Building locally, running the tests, and cutting releases are covered in
+[DEVELOPMENT.md](DEVELOPMENT.md).

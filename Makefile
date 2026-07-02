@@ -25,4 +25,7 @@ fmt:
 docs:
 	go tool tfplugindocs generate --provider-name altertable
 
-.PHONY: default build install test testacc lint fmt docs
+release:
+	./scripts/release.sh
+
+.PHONY: default build install test testacc lint fmt docs release
