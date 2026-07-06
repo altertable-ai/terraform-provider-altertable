@@ -8,6 +8,7 @@ import (
 
 	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
@@ -175,6 +176,89 @@ resource "altertable_catalog" "test" {
 				ConfigStateChecks: []statecheck.StateCheck{
 					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("environment_id")),
 					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("id")),
+				},
+			},
+		},
+	})
+}
+
+func TestAccBucketResource_basic(t *testing.T) {
+	// Access keys are intentionally fake: the backend persists them without testing
+	// connectivity, so create succeeds. They are write-only (never returned by the
+	// API), hence ImportStateVerifyIgnore below.
+	const configFmt = `resource "altertable_environment" "test" {
+  name                  = "Terraform Acceptance Test"
+  cloud_provider        = "hetzner"
+  cloud_provider_region = "fsn1"
+}
+
+resource "altertable_bucket" "test" {
+  environment_id    = altertable_environment.test.id
+  name              = "%s"
+  access_key_id     = "EXAMPLE"
+  secret_access_key = "EXAMPLEKEY"
+  region            = "%s"
+}`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy: checkDestroyed("altertable_bucket", func(a map[string]string) error {
+			_, err := testAccClient().GetBucket(context.Background(), a["environment_id"], a["id"])
+			return err
+		}),
+		Steps: []resource.TestStep{
+			{
+				Config: fmt.Sprintf(configFmt, "terraform-acceptance-test-bucket", "us-east-1"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("altertable_bucket.test", "id"),
+					resource.TestCheckResourceAttrSet("altertable_bucket.test", "slug"),
+					resource.TestCheckResourceAttrPair("altertable_bucket.test", "environment_id", "altertable_environment.test", "id"),
+					resource.TestCheckResourceAttr("altertable_bucket.test", "name", "terraform-acceptance-test-bucket"),
+					resource.TestCheckResourceAttr("altertable_bucket.test", "region", "us-east-1"),
+					resource.TestCheckResourceAttr("altertable_bucket.test", "storage_provider", "s3"),
+					resource.TestCheckResourceAttr("altertable_bucket.test", "built_in", "false"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("altertable_bucket.test", tfjsonpath.New("environment_id")),
+					statecheck.ExpectIdentityValueMatchesState("altertable_bucket.test", tfjsonpath.New("id")),
+				},
+			},
+			{
+				// Renaming and changing the region are in-place updates, not replacements.
+				Config: fmt.Sprintf(configFmt, "terraform-acceptance-test-bucket-renamed", "eu-west-1"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("altertable_bucket.test", plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("altertable_bucket.test", "name", "terraform-acceptance-test-bucket-renamed"),
+					resource.TestCheckResourceAttr("altertable_bucket.test", "region", "eu-west-1"),
+				),
+			},
+			{
+				// Back-compat import via the "environment_id:id" colon string.
+				ResourceName:            "altertable_bucket.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"access_key_id", "secret_access_key"},
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					a := s.RootModule().Resources["altertable_bucket.test"].Primary.Attributes
+					return a["environment_id"] + ":" + a["id"], nil
+				},
+			},
+			{
+				// Import via the typed identity block (Terraform 1.12+). The imported state
+				// lacks the write-only access keys, so the follow-up plan re-sends them as an
+				// in-place update — a no-op plan is impossible for this resource.
+				ResourceName:       "altertable_bucket.test",
+				ImportState:        true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+				ExpectNonEmptyPlan: true,
+				ImportPlanChecks: resource.ImportPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("altertable_bucket.test", plancheck.ResourceActionUpdate),
+					},
 				},
 			},
 		},
@@ -360,6 +444,48 @@ data "altertable_environment" "test" {
 			Check: resource.TestCheckResourceAttrPair(
 				"data.altertable_environment.test", "id",
 				"altertable_environment.seed", "id"),
+		}},
+	})
+}
+
+func TestAccBucketDataSource_basic(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{{
+			Config: `
+resource "altertable_environment" "seed" {
+  name                  = "Terraform Acceptance Test Bucket Data Source"
+  cloud_provider        = "hetzner"
+  cloud_provider_region = "fsn1"
+}
+
+resource "altertable_bucket" "seed" {
+  environment_id    = altertable_environment.seed.id
+  name              = "terraform-acceptance-test-bucket-ds"
+  access_key_id     = "EXAMPLE"
+  secret_access_key = "EXAMPLEKEY"
+}
+
+data "altertable_bucket" "by_id" {
+  environment_id = altertable_environment.seed.id
+  id             = altertable_bucket.seed.id
+}
+
+data "altertable_bucket" "by_slug" {
+  environment_id = altertable_environment.seed.id
+  slug           = altertable_bucket.seed.slug
+}`,
+			Check: resource.ComposeAggregateTestCheckFunc(
+				resource.TestCheckResourceAttrPair(
+					"data.altertable_bucket.by_id", "slug",
+					"altertable_bucket.seed", "slug"),
+				resource.TestCheckResourceAttrPair(
+					"data.altertable_bucket.by_slug", "id",
+					"altertable_bucket.seed", "id"),
+				resource.TestCheckResourceAttr("data.altertable_bucket.by_slug", "name", "terraform-acceptance-test-bucket-ds"),
+				resource.TestCheckResourceAttr("data.altertable_bucket.by_slug", "storage_provider", "s3"),
+			),
 		}},
 	})
 }
