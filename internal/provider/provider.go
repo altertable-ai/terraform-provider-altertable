@@ -144,6 +144,7 @@ func (p *AltertableProvider) Resources(_ context.Context) []func() resource.Reso
 	return []func() resource.Resource{
 		NewEnvironmentResource,
 		NewCatalogResource,
+		NewBucketResource,
 		NewServiceAccountResource,
 		NewRoleSetResource,
 		NewCredentialResource,
@@ -154,6 +155,7 @@ func (p *AltertableProvider) DataSources(_ context.Context) []func() datasource.
 	return []func() datasource.DataSource{
 		NewEnvironmentDataSource,
 		NewCatalogDataSource,
+		NewBucketDataSource,
 		NewUserDataSource,
 		NewServiceAccountDataSource,
 		NewCredentialDataSource,

@@ -256,6 +256,46 @@ type DatabasesListResponse struct {
 	Databases []Database `json:"databases"`
 }
 
+// ---- Bucket ----
+
+type Bucket struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Slug          string `json:"slug"`
+	Region        string `json:"region"`
+	Endpoint      string `json:"endpoint"`
+	Provider      string `json:"provider"` // derived server-side from endpoint: s3, r2, gcs or custom
+	BuiltIn       bool   `json:"built_in"`
+	EnvironmentID string `json:"environment_id"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+type CreateBucketRequest struct {
+	Name            string `json:"name"`
+	AccessKeyID     string `json:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key"`
+	Region          string `json:"region,omitempty"`
+	Endpoint        string `json:"endpoint,omitempty"`
+}
+
+// The API applies only non-blank fields; a field cannot be cleared in place.
+type UpdateBucketRequest struct {
+	Name            string `json:"name,omitempty"`
+	AccessKeyID     string `json:"access_key_id,omitempty"`
+	SecretAccessKey string `json:"secret_access_key,omitempty"`
+	Region          string `json:"region,omitempty"`
+	Endpoint        string `json:"endpoint,omitempty"`
+}
+
+type BucketResponse struct {
+	Bucket Bucket `json:"bucket"`
+}
+
+type BucketsListResponse struct {
+	Buckets []Bucket `json:"buckets"`
+}
+
 // ---- Credential ----
 
 type Credential struct {

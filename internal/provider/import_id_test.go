@@ -2,7 +2,7 @@ package provider
 
 import "testing"
 
-func TestParseCatalogImportID(t *testing.T) {
+func TestParseEnvScopedImportID(t *testing.T) {
 	tests := []struct {
 		name            string
 		in              string
@@ -18,9 +18,9 @@ func TestParseCatalogImportID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, id, ok := parseCatalogImportID(tt.in)
+			env, id, ok := parseEnvScopedImportID(tt.in)
 			if ok != tt.wantOK || env != tt.wantEnv || id != tt.wantID {
-				t.Fatalf("parseCatalogImportID(%q) = (%q,%q,%v), want (%q,%q,%v)",
+				t.Fatalf("parseEnvScopedImportID(%q) = (%q,%q,%v), want (%q,%q,%v)",
 					tt.in, env, id, ok, tt.wantEnv, tt.wantID, tt.wantOK)
 			}
 		})

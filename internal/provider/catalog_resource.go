@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -444,18 +443,10 @@ func applyConnectionPreservingConfig(m *catalogResourceModel, con *client.Connec
 	m.applyConnection(con)
 }
 
-func parseCatalogImportID(importID string) (env, id string, ok bool) {
-	parts := strings.SplitN(importID, ":", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", false
-	}
-	return parts[0], parts[1], true
-}
-
 func (r *CatalogResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	if req.ID != "" {
 		// Back-compat: "environment_id:id" colon string (CLI / older Terraform).
-		env, id, ok := parseCatalogImportID(req.ID)
+		env, id, ok := parseEnvScopedImportID(req.ID)
 		if !ok {
 			resp.Diagnostics.AddError("Invalid import ID", "expected \"environment_id:id\"")
 			return
