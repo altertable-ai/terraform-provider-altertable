@@ -142,7 +142,8 @@ func (r *CatalogResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				PlanModifiers:       computedStr,
 			},
 			"created_at": schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true, PlanModifiers: computedStr},
-			"updated_at": schema.StringAttribute{MarkdownDescription: "Last update timestamp.", Computed: true, PlanModifiers: computedStr},
+			// updated_at changes on every write, so it can't be pinned with UseStateForUnknown.
+			"updated_at": schema.StringAttribute{MarkdownDescription: "Last update timestamp.", Computed: true},
 
 			// Database-only (engine = "altertable")
 			"bucket_id": schema.StringAttribute{

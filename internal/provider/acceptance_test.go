@@ -87,7 +87,7 @@ func TestAccEnvironmentResource_basic(t *testing.T) {
 }
 
 func TestAccCatalogResource_basic(t *testing.T) {
-	const config = `resource "altertable_environment" "test" {
+	const configFmt = `resource "altertable_environment" "test" {
   name                  = "Terraform Acceptance Test"
   cloud_provider        = "hetzner"
   cloud_provider_region = "fsn1"
@@ -96,8 +96,9 @@ func TestAccCatalogResource_basic(t *testing.T) {
 resource "altertable_catalog" "test" {
   environment_id = altertable_environment.test.id
   engine         = "altertable"
-  name           = "Terraform Acceptance Test Catalog"
+  name           = "%s"
 }`
+	config := fmt.Sprintf(configFmt, "Terraform Acceptance Test Catalog")
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -115,6 +116,16 @@ resource "altertable_catalog" "test" {
 					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("environment_id")),
 					statecheck.ExpectIdentityValueMatchesState("altertable_catalog.test", tfjsonpath.New("id")),
 				},
+			},
+			{
+				// Rename = in-place update; regression for updated_at pinned via UseStateForUnknown.
+				Config: fmt.Sprintf(configFmt, "Terraform Acceptance Test Catalog Renamed"),
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("altertable_catalog.test", plancheck.ResourceActionUpdate),
+					},
+				},
+				Check: resource.TestCheckResourceAttr("altertable_catalog.test", "name", "Terraform Acceptance Test Catalog Renamed"),
 			},
 			{
 				// Back-compat import via the "environment_id:id" colon string.
