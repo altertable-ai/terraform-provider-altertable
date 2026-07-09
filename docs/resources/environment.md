@@ -26,11 +26,8 @@ resource "altertable_environment" "example" {
 ### Required
 
 - `cloud_provider` (String) Cloud provider: `hetzner` or `aws`. Changing this forces a new environment.
-- `name` (String) Human-readable environment name. Changing this forces a new environment.
-
-### Optional
-
 - `cloud_provider_region` (String) Region within the cloud provider (e.g. `fsn1` for hetzner, `eu-west-1` for aws). Changing this forces a new environment.
+- `name` (String) Human-readable environment name. Changing this forces a new environment.
 
 ### Read-Only
 
