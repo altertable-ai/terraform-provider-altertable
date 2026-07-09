@@ -62,8 +62,7 @@ func (r *EnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest
 			},
 			"cloud_provider_region": schema.StringAttribute{
 				MarkdownDescription: "Region within the cloud provider (e.g. `fsn1` for hetzner, `eu-west-1` for aws). Changing this forces a new environment.",
-				Optional:            true,
-				Computed:            true,
+				Required:            true,
 				PlanModifiers:       forceNewStr,
 			},
 			"slug": schema.StringAttribute{
