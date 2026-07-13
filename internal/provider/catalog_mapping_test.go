@@ -133,3 +133,83 @@ func TestToCreateConnectionRequestMapsPostgresConfig(t *testing.T) {
 		t.Errorf("pg config = %+v", in.PostgresConfig)
 	}
 }
+
+// Routing is by block, not engine: postgres_config always maps to PostgresConfig (used by
+// postgres/redshift/supabase) and mysql_config to MysqlConfig (used by mysql/mariadb).
+func TestApplyConfigsRoutesEachBlock(t *testing.T) {
+	redshift := &catalogResourceModel{
+		Engine:         types.StringValue("redshift"),
+		PostgresConfig: &postgresConfigModel{Host: types.StringValue("h"), Port: types.Int64Value(5439)},
+	}
+	if in := redshift.toCreateConnectionRequest(); in.PostgresConfig == nil || in.MysqlConfig != nil {
+		t.Errorf("postgres_config should map to PostgresConfig, got %+v", in)
+	}
+	mariadb := &catalogResourceModel{
+		Engine:      types.StringValue("mariadb"),
+		MysqlConfig: &mysqlConfigModel{Host: types.StringValue("h"), Port: types.Int64Value(3306)},
+	}
+	if in := mariadb.toCreateConnectionRequest(); in.MysqlConfig == nil || in.PostgresConfig != nil {
+		t.Errorf("mysql_config should map to MysqlConfig, got %+v", in)
+	}
+}
+
+// Write-only secrets live only in config: they must reach the API request (built from the config
+// model) while being absent from the plan/state model that persists.
+func TestWriteOnlySecretOverlayFromConfig(t *testing.T) {
+	// Plan model: non-secret fields present, password null (write-only values are stripped from
+	// the plan by Terraform).
+	plan := &catalogResourceModel{
+		Name:   types.StringValue("PG"),
+		Engine: types.StringValue("postgres"),
+		PostgresConfig: &postgresConfigModel{
+			Host:     types.StringValue("h"),
+			Port:     types.Int64Value(5432),
+			Password: types.StringNull(),
+		},
+	}
+	// Config model: same fields, but with the secret populated.
+	cfg := &catalogResourceModel{
+		Name:   types.StringValue("PG"),
+		Engine: types.StringValue("postgres"),
+		PostgresConfig: &postgresConfigModel{
+			Host:     types.StringValue("h"),
+			Port:     types.Int64Value(5432),
+			Password: types.StringValue("secret"),
+		},
+	}
+
+	in := plan.toCreateConnectionRequest()
+	if in.PostgresConfig.Password != "" {
+		t.Fatalf("plan-built request should have no secret, got %q", in.PostgresConfig.Password)
+	}
+	cfg.applyConfigsToCreate(&in)
+	if in.PostgresConfig.Password != "secret" {
+		t.Errorf("overlaid request password = %q, want secret", in.PostgresConfig.Password)
+	}
+	// The persisted plan model still carries a null (unset) password.
+	if !plan.PostgresConfig.Password.IsNull() {
+		t.Errorf("plan password = %v, want null (never stored in state)", plan.PostgresConfig.Password)
+	}
+}
+
+// The update path builds top-level fields from the plan and overlays secret-bearing config blocks.
+func TestSetUpdateConfigsOverlaysSecrets(t *testing.T) {
+	plan := &catalogResourceModel{
+		Name:           types.StringValue("PG"),
+		Engine:         types.StringValue("postgres"),
+		ReadOnly:       types.BoolValue(true),
+		PostgresConfig: &postgresConfigModel{Host: types.StringValue("h"), Port: types.Int64Value(5432)},
+	}
+	cfg := &catalogResourceModel{
+		Engine:         types.StringValue("postgres"),
+		PostgresConfig: &postgresConfigModel{Host: types.StringValue("h"), Port: types.Int64Value(5432), Password: types.StringValue("secret")},
+	}
+	in := plan.toUpdateConnectionRequest()
+	setUpdateConfigs(&in, cfg.toCreateConnectionRequest())
+	if in.ReadOnly == nil || !*in.ReadOnly {
+		t.Errorf("read_only should come from plan (true), got %v", in.ReadOnly)
+	}
+	if in.PostgresConfig == nil || in.PostgresConfig.Password != "secret" {
+		t.Errorf("update config should carry the overlaid secret, got %+v", in.PostgresConfig)
+	}
+}

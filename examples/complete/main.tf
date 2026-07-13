@@ -5,8 +5,9 @@ provider "altertable" {
 # ── Environment ───────────────────────────────
 
 resource "altertable_environment" "production" {
-  name           = "Production"
-  cloud_provider = "aws"
+  name                  = "Production"
+  cloud_provider        = "aws"
+  cloud_provider_region = "eu-west-1"
 }
 
 # ── Service account ──────────────────────────
@@ -33,7 +34,7 @@ resource "altertable_catalog" "analytics" {
     port     = 5432
     database = "analytics"
     username = "altertable"
-    password = var.pg_password
+    password = var.pg_password # write-only
   }
 }
 

@@ -88,16 +88,6 @@ type ConnectionSshTunnel struct {
 	BastionUsername string `json:"bastion_username,omitempty"`
 }
 
-type ConnectionStandardConfig struct {
-	Host      string               `json:"host,omitempty"`
-	Port      int                  `json:"port,omitempty"`
-	Database  string               `json:"database,omitempty"`
-	Username  string               `json:"username,omitempty"`
-	Password  string               `json:"password,omitempty"`
-	Schema    string               `json:"schema,omitempty"`
-	SshTunnel *ConnectionSshTunnel `json:"ssh_tunnel,omitempty"`
-}
-
 type ConnectionMysqlConfig struct {
 	Host      string               `json:"host,omitempty"`
 	Port      int                  `json:"port,omitempty"`
@@ -174,7 +164,6 @@ type CreateConnectionRequest struct {
 	ReadOnly            bool                           `json:"read_only,omitempty"`
 	Tags                []string                       `json:"tags,omitempty"`
 	Description         string                         `json:"description,omitempty"`
-	StandardConfig      *ConnectionStandardConfig      `json:"standard_config,omitempty"`
 	MysqlConfig         *ConnectionMysqlConfig         `json:"mysql_config,omitempty"`
 	PostgresConfig      *ConnectionPostgresConfig      `json:"postgres_config,omitempty"`
 	BigQueryConfig      *ConnectionBigQueryConfig      `json:"bigquery_config,omitempty"`
@@ -192,7 +181,6 @@ type UpdateConnectionRequest struct {
 	ReadOnly            *bool                          `json:"read_only,omitempty"`
 	Tags                []string                       `json:"tags,omitempty"`
 	Description         *string                        `json:"description,omitempty"`
-	StandardConfig      *ConnectionStandardConfig      `json:"standard_config,omitempty"`
 	MysqlConfig         *ConnectionMysqlConfig         `json:"mysql_config,omitempty"`
 	PostgresConfig      *ConnectionPostgresConfig      `json:"postgres_config,omitempty"`
 	BigQueryConfig      *ConnectionBigQueryConfig      `json:"bigquery_config,omitempty"`
