@@ -42,6 +42,9 @@ signs:
       - "${artifact}"
 
 release:
+  # release-please creates the GitHub release (with the changelog as its body);
+  # goreleaser only attaches the signed provider artifacts to it.
+  mode: keep-existing
   extra_files:
     - glob: 'terraform-registry-manifest.json'
       name_template: '{{ .ProjectName }}_{{ .Version }}_manifest.json'
