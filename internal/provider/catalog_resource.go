@@ -3,8 +3,12 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/identityschema"
@@ -14,6 +18,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -56,27 +61,30 @@ func (r *CatalogResource) Metadata(_ context.Context, req resource.MetadataReque
 	resp.TypeName = req.ProviderTypeName + "_catalog"
 }
 
+var portValidators = []validator.Int64{int64validator.Between(1, 65535)}
+
 func sshTunnelAttribute() schema.SingleNestedAttribute {
 	return schema.SingleNestedAttribute{
 		MarkdownDescription: "Optional SSH bastion tunnel used to reach the database.",
 		Optional:            true,
 		Attributes: map[string]schema.Attribute{
-			"bastion_host":     schema.StringAttribute{MarkdownDescription: "Bastion host.", Optional: true},
-			"bastion_port":     schema.Int64Attribute{MarkdownDescription: "Bastion SSH port.", Optional: true},
-			"bastion_username": schema.StringAttribute{MarkdownDescription: "Bastion SSH username.", Optional: true},
+			"bastion_host":     schema.StringAttribute{MarkdownDescription: "Bastion host.", Required: true},
+			"bastion_port":     schema.Int64Attribute{MarkdownDescription: "Bastion SSH port.", Optional: true, Validators: portValidators},
+			"bastion_username": schema.StringAttribute{MarkdownDescription: "Bastion SSH username.", Required: true},
 		},
 	}
 }
 
-// standardConfigAttributes returns the field set shared by standard_config and
-// mysql_config.
-func standardConfigAttributes() map[string]schema.Attribute {
+// sqlConfigAttributes returns the fields shared by postgres_config and mysql_config. The caller
+// adds sslmode for postgres_config. Secret fields are write-only and never stored in state or
+// shown in the diff.
+func sqlConfigAttributes() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
-		"host":       schema.StringAttribute{MarkdownDescription: "Database host.", Optional: true},
-		"port":       schema.Int64Attribute{MarkdownDescription: "Database port.", Optional: true},
-		"database":   schema.StringAttribute{MarkdownDescription: "Database name.", Optional: true},
+		"host":       schema.StringAttribute{MarkdownDescription: "Database host.", Required: true},
+		"port":       schema.Int64Attribute{MarkdownDescription: "Database port.", Required: true, Validators: portValidators},
+		"database":   schema.StringAttribute{MarkdownDescription: "Database name.", Required: true},
 		"username":   schema.StringAttribute{MarkdownDescription: "Login username.", Optional: true},
-		"password":   schema.StringAttribute{MarkdownDescription: "Login password (write-only).", Optional: true, Sensitive: true},
+		"password":   schema.StringAttribute{MarkdownDescription: "Login password (write-only; never stored in state).", Optional: true, Sensitive: true, WriteOnly: true},
 		"schema":     schema.StringAttribute{MarkdownDescription: "Default schema.", Optional: true},
 		"ssh_tunnel": sshTunnelAttribute(),
 	}
@@ -87,8 +95,11 @@ func (r *CatalogResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 	forceNewStr := []planmodifier.String{stringplanmodifier.RequiresReplace()}
 	computedBool := []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()}
 
-	postgresAttrs := standardConfigAttributes()
-	postgresAttrs["sslmode"] = schema.StringAttribute{MarkdownDescription: "Postgres SSL mode (e.g. `require`).", Optional: true}
+	postgresAttrs := sqlConfigAttributes()
+	postgresAttrs["sslmode"] = schema.StringAttribute{
+		MarkdownDescription: "Postgres SSL mode (e.g. `require`).",
+		Optional:            true,
+	}
 
 	resp.Schema = schema.Schema{
 		MarkdownDescription: "A catalog within an Altertable environment. This is a facade: `engine = \"altertable\"` manages a native database; any other engine manages an external connection.",
@@ -104,9 +115,10 @@ func (r *CatalogResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				PlanModifiers:       forceNewStr,
 			},
 			"engine": schema.StringAttribute{
-				MarkdownDescription: "Catalog engine. `altertable` for a native database; otherwise an external connection engine (e.g. `postgres`, `mysql`, `bigquery`). Changing this forces a new catalog.",
+				MarkdownDescription: "Catalog engine. `altertable` for a native database; otherwise an external connection engine (one of `postgres`, `redshift`, `supabase`, `mysql`, `mariadb`, `snowflake`, `bigquery`, `buckettables`, `icebergtables`, `r2catalog`, `s3tables`, `glue`, `duckdb`). Changing this forces a new catalog.",
 				Required:            true,
 				PlanModifiers:       forceNewStr,
+				Validators:          []validator.String{stringvalidator.OneOf(allEngines()...)},
 			},
 			"name": schema.StringAttribute{
 				MarkdownDescription: "Human-readable catalog name.",
@@ -164,94 +176,91 @@ func (r *CatalogResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				PlanModifiers:       computedBool,
 			},
 
-			// Connection-only config blocks (one per engine family). Write-only;
-			// the API never returns them.
-			"standard_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "Generic SQL connection config.",
-				Optional:            true,
-				Attributes:          standardConfigAttributes(),
-			},
-			"mysql_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "MySQL connection config.",
-				Optional:            true,
-				Attributes:          standardConfigAttributes(),
-			},
+			// Connection-only config blocks (one per engine family). Exactly the block matching
+			// `engine` may be set (enforced in ValidateConfig); each carries only that engine's
+			// fields, so a plan never shows settings from an unrelated engine. Secret fields are
+			// write-only and never stored in state.
 			"postgres_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "PostgreSQL connection config.",
+				MarkdownDescription: "PostgreSQL connection settings. Engines: `postgres`, `redshift`, `supabase`.",
 				Optional:            true,
 				Attributes:          postgresAttrs,
 			},
+			"mysql_config": schema.SingleNestedAttribute{
+				MarkdownDescription: "MySQL connection settings. Engines: `mysql`, `mariadb`.",
+				Optional:            true,
+				Attributes:          sqlConfigAttributes(),
+			},
+			"snowflake_config": schema.SingleNestedAttribute{
+				MarkdownDescription: "Snowflake connection settings. Engine: `snowflake`.",
+				Optional:            true,
+				Attributes: map[string]schema.Attribute{
+					"account_url": schema.StringAttribute{MarkdownDescription: "Snowflake account URL.", Required: true},
+					"warehouse":   schema.StringAttribute{MarkdownDescription: "Warehouse name.", Required: true},
+					"username":    schema.StringAttribute{MarkdownDescription: "Login username.", Optional: true},
+					"password":    schema.StringAttribute{MarkdownDescription: "Login password (write-only; never stored in state).", Optional: true, Sensitive: true, WriteOnly: true},
+					"database":    schema.StringAttribute{MarkdownDescription: "Database name.", Optional: true},
+				},
+			},
 			"bigquery_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "BigQuery connection config.",
+				MarkdownDescription: "BigQuery connection settings. Engine: `bigquery`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
 					"dataset":             schema.StringAttribute{MarkdownDescription: "BigQuery dataset.", Optional: true},
 					"project_id_override": schema.StringAttribute{MarkdownDescription: "Override the GCP project ID.", Optional: true},
 				},
 			},
-			"snowflake_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "Snowflake connection config.",
-				Optional:            true,
-				Attributes: map[string]schema.Attribute{
-					"account_url": schema.StringAttribute{MarkdownDescription: "Snowflake account URL.", Optional: true},
-					"warehouse":   schema.StringAttribute{MarkdownDescription: "Warehouse name.", Optional: true},
-					"username":    schema.StringAttribute{MarkdownDescription: "Login username.", Optional: true},
-					"password":    schema.StringAttribute{MarkdownDescription: "Login password (write-only).", Optional: true, Sensitive: true},
-					"database":    schema.StringAttribute{MarkdownDescription: "Database name.", Optional: true},
-				},
-			},
 			"bucket_tables_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "Bucket tables connection config.",
+				MarkdownDescription: "Bucket tables connection settings. Engine: `buckettables`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
-					"bucket_id":        schema.StringAttribute{MarkdownDescription: "Storage bucket ID.", Optional: true},
-					"file_format":      schema.StringAttribute{MarkdownDescription: "File format (e.g. `parquet`).", Optional: true},
+					"bucket_id":        schema.StringAttribute{MarkdownDescription: "Storage bucket ID.", Required: true},
+					"file_format":      schema.StringAttribute{MarkdownDescription: "File format. One of `parquet`, `csv`, `json`.", Required: true, Validators: []validator.String{stringvalidator.OneOf("parquet", "csv", "json")}},
+					"tables":           schema.StringAttribute{MarkdownDescription: "Table definitions as a JSON object mapping table names to strings.", Required: true},
 					"assume_immutable": schema.BoolAttribute{MarkdownDescription: "Treat files as immutable.", Optional: true},
-					"tables":           schema.StringAttribute{MarkdownDescription: "Table definitions as a JSON string.", Optional: true},
 				},
 			},
 			"iceberg_tables_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "Iceberg tables connection config.",
+				MarkdownDescription: "Iceberg tables connection settings. Engine: `icebergtables`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
-					"bucket_id": schema.StringAttribute{MarkdownDescription: "Storage bucket ID.", Optional: true},
-					"tables":    schema.StringAttribute{MarkdownDescription: "Table definitions as a JSON string.", Optional: true},
+					"bucket_id": schema.StringAttribute{MarkdownDescription: "Storage bucket ID.", Required: true},
+					"tables":    schema.StringAttribute{MarkdownDescription: "Table definitions as a JSON object mapping table names to strings.", Required: true},
 				},
 			},
 			"duckdb_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "DuckDB connection config.",
+				MarkdownDescription: "DuckDB connection settings. Engine: `duckdb`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
-					"bucket_id": schema.StringAttribute{MarkdownDescription: "Storage bucket ID.", Optional: true},
-					"path":      schema.StringAttribute{MarkdownDescription: "Path to the DuckDB file.", Optional: true},
+					"bucket_id": schema.StringAttribute{MarkdownDescription: "Storage bucket ID.", Required: true},
+					"path":      schema.StringAttribute{MarkdownDescription: "Path to the DuckDB file (must end with `.duckdb`).", Required: true, Validators: []validator.String{stringvalidator.RegexMatches(regexp.MustCompile(`\.duckdb$`), "path must end with .duckdb")}},
 				},
 			},
 			"r2_catalog_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "Cloudflare R2 catalog connection config.",
+				MarkdownDescription: "Cloudflare R2 catalog connection settings. Engine: `r2catalog`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
-					"warehouse": schema.StringAttribute{MarkdownDescription: "Warehouse name.", Optional: true},
-					"endpoint":  schema.StringAttribute{MarkdownDescription: "R2 endpoint.", Optional: true},
-					"token":     schema.StringAttribute{MarkdownDescription: "Access token (write-only).", Optional: true, Sensitive: true},
+					"warehouse": schema.StringAttribute{MarkdownDescription: "Warehouse name.", Required: true},
+					"endpoint":  schema.StringAttribute{MarkdownDescription: "R2 endpoint.", Required: true},
+					"token":     schema.StringAttribute{MarkdownDescription: "Access token (write-only; never stored in state).", Required: true, Sensitive: true, WriteOnly: true},
 				},
 			},
 			"s3_tables_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "AWS S3 Tables connection config.",
+				MarkdownDescription: "AWS S3 Tables connection settings. Engine: `s3tables`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
-					"warehouse":             schema.StringAttribute{MarkdownDescription: "Warehouse name.", Optional: true},
-					"default_region":        schema.StringAttribute{MarkdownDescription: "AWS region.", Optional: true},
-					"aws_access_key_id":     schema.StringAttribute{MarkdownDescription: "AWS access key ID.", Optional: true},
-					"aws_secret_access_key": schema.StringAttribute{MarkdownDescription: "AWS secret access key (write-only).", Optional: true, Sensitive: true},
+					"warehouse":             schema.StringAttribute{MarkdownDescription: "Warehouse name.", Required: true},
+					"default_region":        schema.StringAttribute{MarkdownDescription: "AWS region.", Required: true},
+					"aws_access_key_id":     schema.StringAttribute{MarkdownDescription: "AWS access key ID.", Required: true},
+					"aws_secret_access_key": schema.StringAttribute{MarkdownDescription: "AWS secret access key (write-only; never stored in state).", Required: true, Sensitive: true, WriteOnly: true},
 				},
 			},
 			"glue_config": schema.SingleNestedAttribute{
-				MarkdownDescription: "AWS Glue connection config.",
+				MarkdownDescription: "AWS Glue connection settings. Engine: `glue`.",
 				Optional:            true,
 				Attributes: map[string]schema.Attribute{
-					"warehouse":      schema.StringAttribute{MarkdownDescription: "Warehouse name.", Optional: true},
-					"default_region": schema.StringAttribute{MarkdownDescription: "AWS region.", Optional: true},
-					"role_arn":       schema.StringAttribute{MarkdownDescription: "IAM role ARN.", Optional: true},
+					"warehouse":      schema.StringAttribute{MarkdownDescription: "Warehouse name.", Required: true},
+					"default_region": schema.StringAttribute{MarkdownDescription: "AWS region.", Required: true},
+					"role_arn":       schema.StringAttribute{MarkdownDescription: "IAM role ARN.", Required: true},
 				},
 			},
 		},
@@ -280,17 +289,57 @@ func (r *CatalogResource) ValidateConfig(ctx context.Context, req resource.Valid
 	if resp.Diagnostics.HasError() || cfg.Engine.IsUnknown() || cfg.Engine.IsNull() {
 		return
 	}
-	isDB := isDatabaseEngine(cfg.Engine.ValueString())
-	anyConfig := cfg.StandardConfig != nil || cfg.MysqlConfig != nil || cfg.PostgresConfig != nil ||
-		cfg.BigQueryConfig != nil || cfg.SnowflakeConfig != nil || cfg.BucketTablesConfig != nil ||
-		cfg.IcebergTablesConfig != nil || cfg.DuckDBConfig != nil || cfg.R2CatalogConfig != nil ||
-		cfg.S3TablesConfig != nil || cfg.GlueConfig != nil
-	if isDB && anyConfig {
-		resp.Diagnostics.AddError("Invalid catalog config", "connection *_config blocks are not allowed when engine = \"altertable\"")
+	for _, msg := range validateCatalogConfig(&cfg) {
+		resp.Diagnostics.AddError("Invalid catalog config", msg)
 	}
-	if !isDB && (!cfg.BucketID.IsNull() || !cfg.SnapshotRetentionDays.IsNull()) {
-		resp.Diagnostics.AddError("Invalid catalog config", "bucket_id and snapshot_retention_days are only valid when engine = \"altertable\"")
+
+	if c := cfg.BucketTablesConfig; c != nil {
+		if err := validTablesJSON(c.Tables); err != nil {
+			resp.Diagnostics.AddAttributeError(path.Root("bucket_tables_config").AtName("tables"), "Invalid tables", err.Error())
+		}
 	}
+	if c := cfg.IcebergTablesConfig; c != nil {
+		if err := validTablesJSON(c.Tables); err != nil {
+			resp.Diagnostics.AddAttributeError(path.Root("iceberg_tables_config").AtName("tables"), "Invalid tables", err.Error())
+		}
+	}
+}
+
+func validateCatalogConfig(cfg *catalogResourceModel) []string {
+	engine := cfg.Engine.ValueString()
+	var errs []string
+	set := cfg.setConnectionBlocks()
+
+	if isDatabaseEngine(engine) {
+		if len(set) > 0 {
+			errs = append(errs, fmt.Sprintf("%s not allowed when engine = %q", strings.Join(set, ", "), engineAltertable))
+		}
+		return errs
+	}
+
+	// Connection engine: bucket_id and snapshot_retention_days are database-only.
+	if !cfg.BucketID.IsNull() || !cfg.SnapshotRetentionDays.IsNull() {
+		errs = append(errs, "bucket_id and snapshot_retention_days are only valid when engine = \"altertable\"")
+	}
+
+	block, known := engineBlocks[engine]
+	if !known {
+		return errs // an unknown engine is already reported by the engine OneOf validator
+	}
+
+	// The engine's own block is required; every other block is invalid.
+	present := false
+	for _, b := range set {
+		if b == block {
+			present = true
+			continue
+		}
+		errs = append(errs, fmt.Sprintf("%s is not valid for engine %q; use %s", b, engine, block))
+	}
+	if !present {
+		errs = append(errs, fmt.Sprintf("engine %q requires a %s block", engine, block))
+	}
+	return errs
 }
 
 func (r *CatalogResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -308,7 +357,16 @@ func (r *CatalogResource) Create(ctx context.Context, req resource.CreateRequest
 		}
 		plan.applyDatabase(db)
 	} else {
-		con, err := r.client.CreateConnection(ctx, env, plan.toCreateConnectionRequest())
+		// Write-only secrets are null in the plan; read them from config and overlay them onto
+		// the config blocks (top-level fields still come from the plan).
+		var cfg catalogResourceModel
+		resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		in := plan.toCreateConnectionRequest()
+		cfg.applyConfigsToCreate(&in)
+		con, err := r.client.CreateConnection(ctx, env, in)
 		if err != nil {
 			resp.Diagnostics.AddError("Error creating catalog (connection)", err.Error())
 			return
@@ -353,7 +411,16 @@ func (r *CatalogResource) Update(ctx context.Context, req resource.UpdateRequest
 		}
 		plan.applyDatabase(db)
 	} else {
-		con, err := r.client.UpdateConnection(ctx, env, id, plan.toUpdateConnectionRequest())
+		// Write-only secrets are null in the plan; read them from config and overlay them onto
+		// the config blocks (top-level fields still come from the plan).
+		var cfg catalogResourceModel
+		resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		in := plan.toUpdateConnectionRequest()
+		setUpdateConfigs(&in, cfg.toCreateConnectionRequest())
+		con, err := r.client.UpdateConnection(ctx, env, id, in)
 		if err != nil {
 			resp.Diagnostics.AddError("Error updating catalog (connection)", err.Error())
 			return

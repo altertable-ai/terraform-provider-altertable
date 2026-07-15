@@ -20,10 +20,11 @@ resource "altertable_catalog" "warehouse" {
   name           = "Warehouse"
 }
 
-# An external Postgres connection catalog
+# An external Postgres connection catalog.
+# `password` is write-only: it is sent to the API but never stored in state or shown in the diff.
 resource "altertable_catalog" "analytics" {
   environment_id = altertable_environment.example.id
-  engine         = "postgres"
+  engine         = "postgres" # also accepts "redshift" and "supabase"
   name           = "Analytics"
 
   postgres_config = {
@@ -31,7 +32,21 @@ resource "altertable_catalog" "analytics" {
     port     = 5432
     database = "analytics"
     username = "altertable"
-    password = var.pg_password
+    password = var.pg_password # write-only
+  }
+}
+
+# An AWS S3 Tables connection catalog.
+resource "altertable_catalog" "lake" {
+  environment_id = altertable_environment.example.id
+  engine         = "s3tables"
+  name           = "Lake"
+
+  s3_tables_config = {
+    warehouse             = "arn:aws:s3tables:eu-west-1:123456789012:bucket/my-warehouse"
+    default_region        = "eu-west-1"
+    aws_access_key_id     = "AKIAEXAMPLE"
+    aws_secret_access_key = var.aws_secret_access_key # write-only
   }
 }
 ```
@@ -41,27 +56,26 @@ resource "altertable_catalog" "analytics" {
 
 ### Required
 
-- `engine` (String) Catalog engine. `altertable` for a native database; otherwise an external connection engine (e.g. `postgres`, `mysql`, `bigquery`). Changing this forces a new catalog.
+- `engine` (String) Catalog engine. `altertable` for a native database; otherwise an external connection engine (one of `postgres`, `redshift`, `supabase`, `mysql`, `mariadb`, `snowflake`, `bigquery`, `buckettables`, `icebergtables`, `r2catalog`, `s3tables`, `glue`, `duckdb`). Changing this forces a new catalog.
 - `environment_id` (String) Parent environment ID. Changing this forces a new catalog.
 - `name` (String) Human-readable catalog name.
 
 ### Optional
 
-- `bigquery_config` (Attributes) BigQuery connection config. (see [below for nested schema](#nestedatt--bigquery_config))
+- `bigquery_config` (Attributes) BigQuery connection settings. Engine: `bigquery`. (see [below for nested schema](#nestedatt--bigquery_config))
 - `bucket_id` (String) Storage bucket ID. Only valid when `engine = "altertable"`.
-- `bucket_tables_config` (Attributes) Bucket tables connection config. (see [below for nested schema](#nestedatt--bucket_tables_config))
+- `bucket_tables_config` (Attributes) Bucket tables connection settings. Engine: `buckettables`. (see [below for nested schema](#nestedatt--bucket_tables_config))
 - `description` (String) Optional description.
-- `duckdb_config` (Attributes) DuckDB connection config. (see [below for nested schema](#nestedatt--duckdb_config))
-- `glue_config` (Attributes) AWS Glue connection config. (see [below for nested schema](#nestedatt--glue_config))
-- `iceberg_tables_config` (Attributes) Iceberg tables connection config. (see [below for nested schema](#nestedatt--iceberg_tables_config))
-- `mysql_config` (Attributes) MySQL connection config. (see [below for nested schema](#nestedatt--mysql_config))
-- `postgres_config` (Attributes) PostgreSQL connection config. (see [below for nested schema](#nestedatt--postgres_config))
-- `r2_catalog_config` (Attributes) Cloudflare R2 catalog connection config. (see [below for nested schema](#nestedatt--r2_catalog_config))
+- `duckdb_config` (Attributes) DuckDB connection settings. Engine: `duckdb`. (see [below for nested schema](#nestedatt--duckdb_config))
+- `glue_config` (Attributes) AWS Glue connection settings. Engine: `glue`. (see [below for nested schema](#nestedatt--glue_config))
+- `iceberg_tables_config` (Attributes) Iceberg tables connection settings. Engine: `icebergtables`. (see [below for nested schema](#nestedatt--iceberg_tables_config))
+- `mysql_config` (Attributes) MySQL connection settings. Engines: `mysql`, `mariadb`. (see [below for nested schema](#nestedatt--mysql_config))
+- `postgres_config` (Attributes) PostgreSQL connection settings. Engines: `postgres`, `redshift`, `supabase`. (see [below for nested schema](#nestedatt--postgres_config))
+- `r2_catalog_config` (Attributes) Cloudflare R2 catalog connection settings. Engine: `r2catalog`. (see [below for nested schema](#nestedatt--r2_catalog_config))
 - `read_only` (Boolean) Whether the catalog is read-only.
-- `s3_tables_config` (Attributes) AWS S3 Tables connection config. (see [below for nested schema](#nestedatt--s3_tables_config))
+- `s3_tables_config` (Attributes) AWS S3 Tables connection settings. Engine: `s3tables`. (see [below for nested schema](#nestedatt--s3_tables_config))
 - `snapshot_retention_days` (Number) Snapshot retention in days. Only valid when `engine = "altertable"`.
-- `snowflake_config` (Attributes) Snowflake connection config. (see [below for nested schema](#nestedatt--snowflake_config))
-- `standard_config` (Attributes) Generic SQL connection config. (see [below for nested schema](#nestedatt--standard_config))
+- `snowflake_config` (Attributes) Snowflake connection settings. Engine: `snowflake`. (see [below for nested schema](#nestedatt--snowflake_config))
 - `tags` (List of String) Optional list of tags.
 
 ### Read-Only
@@ -85,27 +99,30 @@ Optional:
 <a id="nestedatt--bucket_tables_config"></a>
 ### Nested Schema for `bucket_tables_config`
 
+Required:
+
+- `bucket_id` (String) Storage bucket ID.
+- `file_format` (String) File format. One of `parquet`, `csv`, `json`.
+- `tables` (String) Table definitions as a JSON object mapping table names to strings.
+
 Optional:
 
 - `assume_immutable` (Boolean) Treat files as immutable.
-- `bucket_id` (String) Storage bucket ID.
-- `file_format` (String) File format (e.g. `parquet`).
-- `tables` (String) Table definitions as a JSON string.
 
 
 <a id="nestedatt--duckdb_config"></a>
 ### Nested Schema for `duckdb_config`
 
-Optional:
+Required:
 
 - `bucket_id` (String) Storage bucket ID.
-- `path` (String) Path to the DuckDB file.
+- `path` (String) Path to the DuckDB file (must end with `.duckdb`).
 
 
 <a id="nestedatt--glue_config"></a>
 ### Nested Schema for `glue_config`
 
-Optional:
+Required:
 
 - `default_region` (String) AWS region.
 - `role_arn` (String) IAM role ARN.
@@ -115,21 +132,24 @@ Optional:
 <a id="nestedatt--iceberg_tables_config"></a>
 ### Nested Schema for `iceberg_tables_config`
 
-Optional:
+Required:
 
 - `bucket_id` (String) Storage bucket ID.
-- `tables` (String) Table definitions as a JSON string.
+- `tables` (String) Table definitions as a JSON object mapping table names to strings.
 
 
 <a id="nestedatt--mysql_config"></a>
 ### Nested Schema for `mysql_config`
 
-Optional:
+Required:
 
 - `database` (String) Database name.
 - `host` (String) Database host.
-- `password` (String, Sensitive) Login password (write-only).
 - `port` (Number) Database port.
+
+Optional:
+
+- `password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Login password (write-only; never stored in state).
 - `schema` (String) Default schema.
 - `ssh_tunnel` (Attributes) Optional SSH bastion tunnel used to reach the database. (see [below for nested schema](#nestedatt--mysql_config--ssh_tunnel))
 - `username` (String) Login username.
@@ -137,23 +157,29 @@ Optional:
 <a id="nestedatt--mysql_config--ssh_tunnel"></a>
 ### Nested Schema for `mysql_config.ssh_tunnel`
 
-Optional:
+Required:
 
 - `bastion_host` (String) Bastion host.
-- `bastion_port` (Number) Bastion SSH port.
 - `bastion_username` (String) Bastion SSH username.
+
+Optional:
+
+- `bastion_port` (Number) Bastion SSH port.
 
 
 
 <a id="nestedatt--postgres_config"></a>
 ### Nested Schema for `postgres_config`
 
-Optional:
+Required:
 
 - `database` (String) Database name.
 - `host` (String) Database host.
-- `password` (String, Sensitive) Login password (write-only).
 - `port` (Number) Database port.
+
+Optional:
+
+- `password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Login password (write-only; never stored in state).
 - `schema` (String) Default schema.
 - `ssh_tunnel` (Attributes) Optional SSH bastion tunnel used to reach the database. (see [below for nested schema](#nestedatt--postgres_config--ssh_tunnel))
 - `sslmode` (String) Postgres SSL mode (e.g. `require`).
@@ -162,31 +188,34 @@ Optional:
 <a id="nestedatt--postgres_config--ssh_tunnel"></a>
 ### Nested Schema for `postgres_config.ssh_tunnel`
 
-Optional:
+Required:
 
 - `bastion_host` (String) Bastion host.
-- `bastion_port` (Number) Bastion SSH port.
 - `bastion_username` (String) Bastion SSH username.
+
+Optional:
+
+- `bastion_port` (Number) Bastion SSH port.
 
 
 
 <a id="nestedatt--r2_catalog_config"></a>
 ### Nested Schema for `r2_catalog_config`
 
-Optional:
+Required:
 
 - `endpoint` (String) R2 endpoint.
-- `token` (String, Sensitive) Access token (write-only).
+- `token` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Access token (write-only; never stored in state).
 - `warehouse` (String) Warehouse name.
 
 
 <a id="nestedatt--s3_tables_config"></a>
 ### Nested Schema for `s3_tables_config`
 
-Optional:
+Required:
 
 - `aws_access_key_id` (String) AWS access key ID.
-- `aws_secret_access_key` (String, Sensitive) AWS secret access key (write-only).
+- `aws_secret_access_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) AWS secret access key (write-only; never stored in state).
 - `default_region` (String) AWS region.
 - `warehouse` (String) Warehouse name.
 
@@ -194,36 +223,16 @@ Optional:
 <a id="nestedatt--snowflake_config"></a>
 ### Nested Schema for `snowflake_config`
 
-Optional:
+Required:
 
 - `account_url` (String) Snowflake account URL.
-- `database` (String) Database name.
-- `password` (String, Sensitive) Login password (write-only).
-- `username` (String) Login username.
 - `warehouse` (String) Warehouse name.
 
-
-<a id="nestedatt--standard_config"></a>
-### Nested Schema for `standard_config`
-
 Optional:
 
 - `database` (String) Database name.
-- `host` (String) Database host.
-- `password` (String, Sensitive) Login password (write-only).
-- `port` (Number) Database port.
-- `schema` (String) Default schema.
-- `ssh_tunnel` (Attributes) Optional SSH bastion tunnel used to reach the database. (see [below for nested schema](#nestedatt--standard_config--ssh_tunnel))
+- `password` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Login password (write-only; never stored in state).
 - `username` (String) Login username.
-
-<a id="nestedatt--standard_config--ssh_tunnel"></a>
-### Nested Schema for `standard_config.ssh_tunnel`
-
-Optional:
-
-- `bastion_host` (String) Bastion host.
-- `bastion_port` (Number) Bastion SSH port.
-- `bastion_username` (String) Bastion SSH username.
 
 ## Import
 
