@@ -1,0 +1,53 @@
+name: Release Gate
+
+# Gates merging of the release-please PR on a manual confirmation that the
+# end-to-end suite was run locally and passed. Maintainers confirm by adding the
+# `e2e-verified` label to the release PR. This check is a no-op on non-release
+# PRs, so it can safely be marked "required" in branch protection for `main`.
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  e2e-verified:
+    name: e2e verified locally
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate gate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          ACTION: ${{ github.event.action }}
+          IS_RELEASE: "${{ contains(github.event.pull_request.labels.*.name, 'autorelease: pending') }}"
+          VERIFIED: ${{ contains(github.event.pull_request.labels.*.name, 'e2e-verified') }}
+        run: |
+          set -euo pipefail
+
+          if [ "$IS_RELEASE" != "true" ]; then
+            echo "Not a release-please PR — gate not applicable."
+            exit 0
+          fi
+
+          verified="$VERIFIED"
+
+          # release-please amended the PR with new content: force re-verification
+          # so a previously-added label can't vouch for changed code.
+          if [ "$ACTION" = "synchronize" ] && [ "$verified" = "true" ]; then
+            echo "Release PR content changed — clearing 'e2e-verified'; re-run e2e locally."
+            gh api -X DELETE "repos/$REPO/issues/$PR/labels/e2e-verified" || true
+            verified="false"
+          fi
+
+          if [ "$verified" = "true" ]; then
+            echo "✅ e2e-verified label present — gate satisfied."
+            exit 0
+          fi
+
+          echo "::error::Release PR blocked. Run the e2e suite locally, confirm it passes, then add the 'e2e-verified' label to this PR to unlock merge."
+          exit 1
