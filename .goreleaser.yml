@@ -42,8 +42,11 @@ signs:
       - "${artifact}"
 
 release:
-  # release-please creates the GitHub release (with the changelog as its body);
-  # goreleaser only attaches the signed provider artifacts to it.
+  # In CI this pipe is skipped (goreleaser runs with `--skip=publish`): release-please
+  # creates the GitHub release as a draft with the changelog as its body, and the
+  # workflow attaches the signed artifacts and publishes it — so the release is only
+  # frozen (immutable releases) once every asset is present. These settings still apply
+  # to a manual/local `goreleaser release`.
   mode: keep-existing
   extra_files:
     - glob: 'terraform-registry-manifest.json'

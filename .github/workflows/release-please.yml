@@ -29,10 +29,15 @@ jobs:
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     permissions:
       contents: write
+    env:
+      TAG_NAME: ${{ needs.release-please.outputs.tag_name }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          ref: ${{ needs.release-please.outputs.tag_name }}
+          # release-please created the release as a *draft*, which does not create
+          # the git tag until the release is published (final step). So there is no
+          # tag to check out yet — build from the merge commit that triggered this run.
+          ref: ${{ github.sha }}
           fetch-depth: 0
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
@@ -42,9 +47,37 @@ jobs:
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
+      - name: Create local tag for GoReleaser
+        # GoReleaser derives the version from the git tag. The real tag does not
+        # exist yet (the release is a draft), so create it locally at the released
+        # commit. It is intentionally not pushed — publishing the draft creates it.
+        run: git tag "$TAG_NAME"
       - uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6.4.0
         with:
-          args: release --clean
+          # Build, checksum and sign into dist/ but do NOT publish. Under immutable
+          # releases, publishing freezes the release, so it must happen once, last,
+          # with every asset already attached — see the "Publish" step below.
+          args: release --clean --skip=publish
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+      - name: Attach artifacts to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${TAG_NAME#v}"
+          # The Terraform Registry requires the manifest named to match the release.
+          cp terraform-registry-manifest.json \
+            "dist/terraform-provider-altertable_${version}_manifest.json"
+          gh release upload "$TAG_NAME" \
+            dist/*.zip \
+            dist/*_SHA256SUMS \
+            dist/*_SHA256SUMS.sig \
+            "dist/terraform-provider-altertable_${version}_manifest.json" \
+            --clobber
+      - name: Publish the release
+        # Flip the draft to published. With immutable releases enabled this is the
+        # point the release and its tag become permanently frozen, so it runs last.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$TAG_NAME" --draft=false --latest

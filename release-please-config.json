@@ -4,7 +4,8 @@
   "packages": {
     ".": {
       "release-type": "go",
-      "package-name": "terraform-provider-altertable"
+      "package-name": "terraform-provider-altertable",
+      "draft": true
     }
   }
 }
