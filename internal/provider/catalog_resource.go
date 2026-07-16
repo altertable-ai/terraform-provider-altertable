@@ -150,8 +150,9 @@ func (r *CatalogResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"catalog": schema.StringAttribute{
 				MarkdownDescription: "Underlying catalog identifier (server-assigned).",
-				Computed:            true,
-				PlanModifiers:       computedStr,
+				// catalog is the server's snake_cased mirror of name and is re-derived on every
+				// rename, so — like updated_at below — it can't be pinned with UseStateForUnknown.
+				Computed: true,
 			},
 			"created_at": schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true, PlanModifiers: computedStr},
 			// updated_at changes on every write, so it can't be pinned with UseStateForUnknown.

@@ -307,6 +307,39 @@ func TestAccServiceAccountResource_basic(t *testing.T) {
 	})
 }
 
+func TestAccUserResource_basic(t *testing.T) {
+	const config = `resource "altertable_user" "test" {
+  email = "terraform-acceptance-test@example.com"
+}`
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy: checkDestroyed("altertable_user", func(a map[string]string) error {
+			_, err := testAccClient().GetUser(context.Background(), a["id"])
+			return err
+		}),
+		Steps: []resource.TestStep{
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("altertable_user.test", "id"),
+					resource.TestCheckResourceAttr("altertable_user.test", "email", "terraform-acceptance-test@example.com"),
+				),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("altertable_user.test", tfjsonpath.New("id")),
+				},
+			},
+			{
+				// Import via the typed identity block (Terraform 1.12+). The iac_id is the stable
+				// identity, so it round-trips whether the user is still pending or already a member.
+				ResourceName:    "altertable_user.test",
+				ImportState:     true,
+				ImportStateKind: resource.ImportBlockWithResourceIdentity,
+			},
+		},
+	})
+}
+
 func TestAccRoleSetResource_basic(t *testing.T) {
 	const withRoleSet = `resource "altertable_service_account" "test" {
   label = "Terraform Acceptance Test Service Account"
@@ -322,21 +355,8 @@ resource "altertable_role_set" "test" {
   ]
 }`
 
-	// role_set.Delete errors by design (no delete endpoint; erroring keeps stale access
-	// in-your-face). The harness auto-destroy would hit that error and leak the service
-	// account, so forget role_set from state first with a `removed` block. Destroying the
-	// service account then clears its role assignments on the backend — no orphans.
-	const forgetRoleSet = `resource "altertable_service_account" "test" {
-  label = "Terraform Acceptance Test Service Account"
-}
-
-removed {
-  from = altertable_role_set.test
-  lifecycle {
-    destroy = false
-  }
-}`
-
+	// Auto-destroy exercises role_set.Delete: it resets the principal's grants to the baseline
+	// organization:member, then the service account is destroyed — no orphaned assignments.
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
@@ -349,7 +369,6 @@ removed {
 				Config: withRoleSet,
 				Check:  resource.TestCheckResourceAttrSet("altertable_role_set.test", "id"),
 			},
-			{Config: forgetRoleSet},
 		},
 	})
 }

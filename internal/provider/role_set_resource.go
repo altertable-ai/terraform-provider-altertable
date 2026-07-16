@@ -187,17 +187,16 @@ func (r *RoleSetResource) Update(ctx context.Context, req resource.UpdateRequest
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
 }
 
-// Delete always errors: the API has no endpoint to delete role assignments, and a
-// principal in an organization always has at least its membership role — there is no
-// "no roles" state. Removing a principal's access means removing the principal from the
-// organization, not emptying this role set.
-func (r *RoleSetResource) Delete(_ context.Context, _ resource.DeleteRequest, resp *resource.DeleteResponse) {
-	resp.Diagnostics.AddError(
-		"Role sets cannot be deleted",
-		"The Altertable API has no endpoint to delete role assignments, and a principal always "+
-			"retains its organization membership role — there is no \"no roles\" state. To remove a "+
-			"principal's access, remove the principal from the organization (delete the user or "+
-			"service account). To stop managing this role set in Terraform without changing the "+
-			"server, remove it from state with `terraform state rm`.",
-	)
+// Delete resets the principal's role assignments to the baseline organization:member. A
+// principal in the organization always keeps its membership — there is no "no roles" state —
+// so removing a managed role set clears the extra grants rather than erasing the principal.
+func (r *RoleSetResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var state roleSetResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if err := r.client.DeleteRoleSet(ctx, state.principalRef()); err != nil && !isNotFound(err) {
+		resp.Diagnostics.AddError("Error deleting role set", err.Error())
+	}
 }

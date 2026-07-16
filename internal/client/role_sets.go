@@ -60,3 +60,14 @@ func (c *Client) PutRoleSet(ctx context.Context, p PrincipalRef, grants []RoleGr
 	}
 	return &RoleSet{PrincipalID: p.id(), Grants: resp.RoleAssignments}, nil
 }
+
+// DELETE /{users|service_accounts}/{id}/role_assignments — resets the principal's grants to the
+// baseline organization:member. The API has no "no roles" state, so this is how a managed role
+// set is removed: the extra grants are cleared while the principal keeps its membership.
+func (c *Client) DeleteRoleSet(ctx context.Context, p PrincipalRef) error {
+	path, err := roleAssignmentsPath(p)
+	if err != nil {
+		return err
+	}
+	return c.doRequest(ctx, http.MethodDelete, path, nil, nil)
+}
