@@ -314,10 +314,21 @@ type CredentialResponse struct {
 
 // ---- User ----
 
+// User is an organization membership or a pending invitation. IacID is the stable Terraform
+// identity: it stays constant across the invitation → acceptance transition. ID (the user
+// UUID) is empty until the invitation is accepted, and InvitationID (the invitation UUID) is
+// empty once it has been. The API sends JSON null for those absent fields, which decodes to
+// the empty string here.
 type User struct {
-	ID    string `json:"id"`
+	ID           string `json:"id"`
+	InvitationID string `json:"invitation_id"`
+	IacID        string `json:"iac_id"`
+	Email        string `json:"email"`
+	Name         string `json:"name"`
+}
+
+type CreateUserRequest struct {
 	Email string `json:"email"`
-	Name  string `json:"name"`
 }
 
 type UserResponse struct {

@@ -128,3 +128,31 @@ func TestPutRoleSetSerializesNilGrantsAsEmptyArray(t *testing.T) {
 		t.Errorf("roles = %s, want []", rolesRaw)
 	}
 }
+
+func TestDeleteRoleSetIssuesDeleteOnPrincipalPath(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ref  PrincipalRef
+		path string
+	}{
+		{"user", PrincipalRef{UserID: "u_1"}, "/users/u_1/role_assignments"},
+		{"service account", PrincipalRef{ServiceAccountID: "sa_1"}, "/service_accounts/sa_1/role_assignments"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var gotMethod, gotPath string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotMethod, gotPath = r.Method, r.URL.Path
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer srv.Close()
+
+			c := NewClient(srv.URL, "k", "test")
+			if err := c.DeleteRoleSet(context.Background(), tc.ref); err != nil {
+				t.Fatalf("err: %s", err)
+			}
+			if gotMethod != http.MethodDelete || gotPath != tc.path {
+				t.Errorf("request = %s %s, want DELETE %s", gotMethod, gotPath, tc.path)
+			}
+		})
+	}
+}
