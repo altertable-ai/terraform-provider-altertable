@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/altertable-ai/terraform-provider-altertable/compare/v0.3.0...v0.3.1) (2026-07-16)
+
+
+### Bug Fixes
+
+* **ci:** use draft releases for immutable releases support ([2c74f74](https://github.com/altertable-ai/terraform-provider-altertable/commit/2c74f7467f0da2e71606144d5cea3c268ebda633))
+* **ci:** use draft releases for immutable releases support ([41f8224](https://github.com/altertable-ai/terraform-provider-altertable/commit/41f822493479bfc55a61e0d16f5ed8879474061d))
+
 ## [0.3.0](https://github.com/altertable-ai/terraform-provider-altertable/compare/v0.2.0...v0.3.0) (2026-07-16)
 
 
