@@ -33,6 +33,7 @@ type bucketDataSourceModel struct {
 	Slug            types.String `tfsdk:"slug"`
 	Region          types.String `tfsdk:"region"`
 	Endpoint        types.String `tfsdk:"endpoint"`
+	RoleARN         types.String `tfsdk:"role_arn"`
 	StorageProvider types.String `tfsdk:"storage_provider"`
 	BuiltIn         types.Bool   `tfsdk:"built_in"`
 	CreatedAt       types.String `tfsdk:"created_at"`
@@ -62,6 +63,7 @@ func (d *BucketDataSource) Schema(_ context.Context, _ datasource.SchemaRequest,
 			},
 			"region":           schema.StringAttribute{MarkdownDescription: "Bucket region.", Computed: true},
 			"endpoint":         schema.StringAttribute{MarkdownDescription: "Custom S3-compatible endpoint URL.", Computed: true},
+			"role_arn":         schema.StringAttribute{MarkdownDescription: "IAM role ARN Altertable assumes to reach the bucket; null for buckets using access keys.", Computed: true},
 			"storage_provider": schema.StringAttribute{MarkdownDescription: "Storage provider derived from the endpoint: `s3`, `r2`, `gcs` or `custom`.", Computed: true},
 			"built_in":         schema.BoolAttribute{MarkdownDescription: "Whether this is the environment's built-in bucket.", Computed: true},
 			"created_at":       schema.StringAttribute{MarkdownDescription: "Creation timestamp.", Computed: true},
@@ -103,6 +105,7 @@ func (d *BucketDataSource) Read(ctx context.Context, req datasource.ReadRequest,
 	data.Slug = types.StringValue(bucket.Slug)
 	data.Region = optString(bucket.Region)
 	data.Endpoint = optString(bucket.Endpoint)
+	data.RoleARN = optString(bucket.RoleARN)
 	data.StorageProvider = types.StringValue(bucket.Provider)
 	data.BuiltIn = types.BoolValue(bucket.BuiltIn)
 	data.CreatedAt = types.StringValue(bucket.CreatedAt)

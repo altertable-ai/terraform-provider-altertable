@@ -7,6 +7,16 @@ resource "altertable_bucket" "landing" {
   secret_access_key = var.aws_secret_access_key
 }
 
+# An AWS S3 bucket reached by assuming an IAM role instead of access keys.
+# The role's trust policy must allow Altertable with the external ID
+# "altertable-<organization_id>".
+resource "altertable_bucket" "lake" {
+  environment_id = altertable_environment.example.id
+  name           = "acme-lake"
+  region         = "eu-west-1"
+  role_arn       = "arn:aws:iam::123456789012:role/altertable-bucket-access"
+}
+
 # A Cloudflare R2 bucket (S3-compatible endpoint)
 resource "altertable_bucket" "archive" {
   environment_id    = altertable_environment.example.id

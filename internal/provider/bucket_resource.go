@@ -3,8 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 
 	"github.com/altertable-ai/terraform-provider-altertable/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework-validators/resourcevalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -22,7 +24,12 @@ var (
 	_ resource.ResourceWithConfigure   = (*BucketResource)(nil)
 	_ resource.ResourceWithImportState = (*BucketResource)(nil)
 	_ resource.ResourceWithIdentity    = (*BucketResource)(nil)
+
+	_ resource.ResourceWithConfigValidators = (*BucketResource)(nil)
 )
+
+// Mirrors the backend's Bucket::ROLE_ARN_FORMAT.
+var bucketRoleARNPattern = regexp.MustCompile(`^arn:aws[a-z-]*:iam::\d{12}:role/[\w+=,.@/-]+$`)
 
 type bucketIdentityModel struct {
 	EnvironmentID types.String `tfsdk:"environment_id"`
@@ -53,6 +60,7 @@ type bucketResourceModel struct {
 	Slug            types.String `tfsdk:"slug"`
 	AccessKeyID     types.String `tfsdk:"access_key_id"`
 	SecretAccessKey types.String `tfsdk:"secret_access_key"`
+	RoleARN         types.String `tfsdk:"role_arn"`
 	Region          types.String `tfsdk:"region"`
 	Endpoint        types.String `tfsdk:"endpoint"`
 	StorageProvider types.String `tfsdk:"storage_provider"`
@@ -78,7 +86,9 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 	)}
 	nonEmpty := []validator.String{stringvalidator.LengthAtLeast(1)}
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "An object-storage bucket connected to an Altertable environment, providing persistence for lakehouse catalogs. Access keys are write-only: the API never returns them.",
+		MarkdownDescription: "An object-storage bucket connected to an Altertable environment, providing persistence for lakehouse catalogs. " +
+			"It authenticates either with an access key pair (`access_key_id` and `secret_access_key`) or, for AWS S3, by assuming an IAM role (`role_arn`). " +
+			"Switching between the two is an in-place update. Access keys are write-only: the API never returns them.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
 				MarkdownDescription: "Bucket identifier.",
@@ -100,14 +110,27 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 				PlanModifiers:       computedStr,
 			},
 			"access_key_id": schema.StringAttribute{
-				MarkdownDescription: "Access key ID used to reach the bucket (write-only; never returned by the API).",
-				Required:            true,
+				MarkdownDescription: "Access key ID used to reach the bucket (write-only; never returned by the API). Exactly one of `access_key_id` or `role_arn` must be set; requires `secret_access_key`.",
+				Optional:            true,
 				Sensitive:           true,
+				Validators:          nonEmpty,
 			},
 			"secret_access_key": schema.StringAttribute{
-				MarkdownDescription: "Secret access key used to reach the bucket (write-only; never returned by the API).",
-				Required:            true,
+				MarkdownDescription: "Secret access key used to reach the bucket (write-only; never returned by the API). Requires `access_key_id`.",
+				Optional:            true,
 				Sensitive:           true,
+				Validators:          nonEmpty,
+			},
+			"role_arn": schema.StringAttribute{
+				MarkdownDescription: "IAM role ARN that Altertable assumes to reach the bucket (e.g. `arn:aws:iam::123456789012:role/altertable`). " +
+					"AWS S3 only: requires `region` and conflicts with `endpoint`. The role's trust policy must allow Altertable with the external ID `altertable-<organization_id>`. " +
+					"Exactly one of `access_key_id` or `role_arn` must be set.",
+				Optional: true,
+				Validators: []validator.String{
+					stringvalidator.RegexMatches(bucketRoleARNPattern, "must be an IAM role ARN such as arn:aws:iam::123456789012:role/name"),
+					stringvalidator.AlsoRequires(path.MatchRoot("region")),
+					stringvalidator.ConflictsWith(path.MatchRoot("endpoint")),
+				},
 			},
 			"region": schema.StringAttribute{
 				MarkdownDescription: "Bucket region (e.g. `eu-west-1`). Removing it forces a new bucket.",
@@ -136,6 +159,13 @@ func (r *BucketResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 	}
 }
 
+func (r *BucketResource) ConfigValidators(_ context.Context) []resource.ConfigValidator {
+	return []resource.ConfigValidator{
+		resourcevalidator.ExactlyOneOf(path.MatchRoot("access_key_id"), path.MatchRoot("role_arn")),
+		resourcevalidator.RequiredTogether(path.MatchRoot("access_key_id"), path.MatchRoot("secret_access_key")),
+	}
+}
+
 func (r *BucketResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	if req.ProviderData == nil {
 		return
@@ -158,6 +188,7 @@ func (r *BucketResource) Create(ctx context.Context, req resource.CreateRequest,
 		Name:            plan.Name.ValueString(),
 		AccessKeyID:     plan.AccessKeyID.ValueString(),
 		SecretAccessKey: plan.SecretAccessKey.ValueString(),
+		RoleARN:         plan.RoleARN.ValueString(),
 		Region:          plan.Region.ValueString(),
 		Endpoint:        plan.Endpoint.ValueString(),
 	})
@@ -200,6 +231,7 @@ func (r *BucketResource) Update(ctx context.Context, req resource.UpdateRequest,
 		Name:            plan.Name.ValueString(),
 		AccessKeyID:     plan.AccessKeyID.ValueString(),
 		SecretAccessKey: plan.SecretAccessKey.ValueString(),
+		RoleARN:         plan.RoleARN.ValueString(),
 		Region:          plan.Region.ValueString(),
 		Endpoint:        plan.Endpoint.ValueString(),
 	})
@@ -254,6 +286,7 @@ func applyBucket(m *bucketResourceModel, b *client.Bucket) {
 	m.Slug = types.StringValue(b.Slug)
 	m.Region = optString(b.Region)
 	m.Endpoint = optString(b.Endpoint)
+	m.RoleARN = optString(b.RoleARN)
 	m.StorageProvider = types.StringValue(b.Provider)
 	m.BuiltIn = types.BoolValue(b.BuiltIn)
 	m.CreatedAt = types.StringValue(b.CreatedAt)
