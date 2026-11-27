@@ -276,6 +276,81 @@ resource "altertable_bucket" "test" {
 	})
 }
 
+func TestAccBucketResource_roleArn(t *testing.T) {
+	// The role ARN is fake: the backend only checks its format on save and assumes the
+	// role lazily, so create succeeds without a real AWS role.
+	const roleARN = "arn:aws:iam::123456789012:role/terraform-acceptance-test"
+	const envConfig = `resource "altertable_environment" "test" {
+  name                  = "Terraform Acceptance Test Bucket Role"
+  cloud_provider        = "hetzner"
+  cloud_provider_region = "fsn1"
+}
+`
+	roleConfig := envConfig + fmt.Sprintf(`
+resource "altertable_bucket" "test" {
+  environment_id = altertable_environment.test.id
+  name           = "terraform-acceptance-test-bucket-role"
+  region         = "us-east-1"
+  role_arn       = %q
+}`, roleARN)
+	keysConfig := envConfig + `
+resource "altertable_bucket" "test" {
+  environment_id    = altertable_environment.test.id
+  name              = "terraform-acceptance-test-bucket-role"
+  region            = "us-east-1"
+  access_key_id     = "EXAMPLE"
+  secret_access_key = "EXAMPLEKEY"
+}`
+	expectUpdate := resource.ConfigPlanChecks{
+		PreApply: []plancheck.PlanCheck{
+			plancheck.ExpectResourceAction("altertable_bucket.test", plancheck.ResourceActionUpdate),
+		},
+	}
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy: checkDestroyed("altertable_bucket", func(a map[string]string) error {
+			_, err := testAccClient().GetBucket(context.Background(), a["environment_id"], a["id"])
+			return err
+		}),
+		Steps: []resource.TestStep{
+			{
+				Config: roleConfig,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("altertable_bucket.test", "id"),
+					resource.TestCheckResourceAttr("altertable_bucket.test", "role_arn", roleARN),
+					resource.TestCheckResourceAttr("altertable_bucket.test", "storage_provider", "s3"),
+					resource.TestCheckNoResourceAttr("altertable_bucket.test", "access_key_id"),
+				),
+			},
+			{
+				// Switching to access keys is in place: the API clears the role.
+				Config:           keysConfig,
+				ConfigPlanChecks: expectUpdate,
+				Check:            resource.TestCheckNoResourceAttr("altertable_bucket.test", "role_arn"),
+			},
+			{
+				// Switching back to the role is in place too: the API clears the keys.
+				Config:           roleConfig,
+				ConfigPlanChecks: expectUpdate,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("altertable_bucket.test", "role_arn", roleARN),
+					resource.TestCheckNoResourceAttr("altertable_bucket.test", "access_key_id"),
+				),
+			},
+			{
+				ResourceName:      "altertable_bucket.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateIdFunc: func(s *terraform.State) (string, error) {
+					a := s.RootModule().Resources["altertable_bucket.test"].Primary.Attributes
+					return a["environment_id"] + ":" + a["id"], nil
+				},
+			},
+		},
+	})
+}
+
 func TestAccServiceAccountResource_basic(t *testing.T) {
 	const config = `resource "altertable_service_account" "test" {
   label = "Terraform Acceptance Test Service Account"
@@ -515,6 +590,7 @@ data "altertable_bucket" "by_slug" {
 					"altertable_bucket.seed", "id"),
 				resource.TestCheckResourceAttr("data.altertable_bucket.by_slug", "name", "terraform-acceptance-test-bucket-ds"),
 				resource.TestCheckResourceAttr("data.altertable_bucket.by_slug", "storage_provider", "s3"),
+				resource.TestCheckNoResourceAttr("data.altertable_bucket.by_slug", "role_arn"),
 			),
 		}},
 	})

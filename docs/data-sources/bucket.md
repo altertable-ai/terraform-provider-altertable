@@ -45,5 +45,6 @@ data "altertable_bucket" "archive" {
 - `endpoint` (String) Custom S3-compatible endpoint URL.
 - `name` (String) Bucket name in the storage provider.
 - `region` (String) Bucket region.
+- `role_arn` (String) IAM role ARN Altertable assumes to reach the bucket; null for buckets using access keys.
 - `storage_provider` (String) Storage provider derived from the endpoint: `s3`, `r2`, `gcs` or `custom`.
 - `updated_at` (String) Last update timestamp.

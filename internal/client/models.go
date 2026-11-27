@@ -252,6 +252,7 @@ type Bucket struct {
 	Slug          string `json:"slug"`
 	Region        string `json:"region"`
 	Endpoint      string `json:"endpoint"`
+	RoleARN       string `json:"role_arn"`
 	Provider      string `json:"provider"` // derived server-side from endpoint: s3, r2, gcs or custom
 	BuiltIn       bool   `json:"built_in"`
 	EnvironmentID string `json:"environment_id"`
@@ -259,19 +260,23 @@ type Bucket struct {
 	UpdatedAt     string `json:"updated_at"`
 }
 
+// Exactly one auth method: an access key pair or a role ARN.
 type CreateBucketRequest struct {
 	Name            string `json:"name"`
-	AccessKeyID     string `json:"access_key_id"`
-	SecretAccessKey string `json:"secret_access_key"`
+	AccessKeyID     string `json:"access_key_id,omitempty"`
+	SecretAccessKey string `json:"secret_access_key,omitempty"`
+	RoleARN         string `json:"role_arn,omitempty"`
 	Region          string `json:"region,omitempty"`
 	Endpoint        string `json:"endpoint,omitempty"`
 }
 
-// The API applies only non-blank fields; a field cannot be cleared in place.
+// The API applies only non-blank fields; a field cannot be cleared in place, except
+// that sending only one auth method (access keys or role ARN) clears the other.
 type UpdateBucketRequest struct {
 	Name            string `json:"name,omitempty"`
 	AccessKeyID     string `json:"access_key_id,omitempty"`
 	SecretAccessKey string `json:"secret_access_key,omitempty"`
+	RoleARN         string `json:"role_arn,omitempty"`
 	Region          string `json:"region,omitempty"`
 	Endpoint        string `json:"endpoint,omitempty"`
 }

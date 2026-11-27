@@ -3,12 +3,12 @@
 page_title: "altertable_bucket Resource - altertable"
 subcategory: ""
 description: |-
-  An object-storage bucket connected to an Altertable environment, providing persistence for lakehouse catalogs. Access keys are write-only: the API never returns them.
+  An object-storage bucket connected to an Altertable environment, providing persistence for lakehouse catalogs. It authenticates either with an access key pair (access_key_id and secret_access_key) or, for AWS S3, by assuming an IAM role (role_arn). Switching between the two is an in-place update. Access keys are write-only: the API never returns them.
 ---
 
 # altertable_bucket (Resource)
 
-An object-storage bucket connected to an Altertable environment, providing persistence for lakehouse catalogs. Access keys are write-only: the API never returns them.
+An object-storage bucket connected to an Altertable environment, providing persistence for lakehouse catalogs. It authenticates either with an access key pair (`access_key_id` and `secret_access_key`) or, for AWS S3, by assuming an IAM role (`role_arn`). Switching between the two is an in-place update. Access keys are write-only: the API never returns them.
 
 ## Example Usage
 
@@ -20,6 +20,16 @@ resource "altertable_bucket" "landing" {
   region            = "eu-west-1"
   access_key_id     = var.aws_access_key_id
   secret_access_key = var.aws_secret_access_key
+}
+
+# An AWS S3 bucket reached by assuming an IAM role instead of access keys.
+# The role's trust policy must allow Altertable with the external ID
+# "altertable-<organization_id>".
+resource "altertable_bucket" "lake" {
+  environment_id = altertable_environment.example.id
+  name           = "acme-lake"
+  region         = "eu-west-1"
+  role_arn       = "arn:aws:iam::123456789012:role/altertable-bucket-access"
 }
 
 # A Cloudflare R2 bucket (S3-compatible endpoint)
@@ -37,15 +47,16 @@ resource "altertable_bucket" "archive" {
 
 ### Required
 
-- `access_key_id` (String, Sensitive) Access key ID used to reach the bucket (write-only; never returned by the API).
 - `environment_id` (String) Parent environment ID. Changing this forces a new bucket.
 - `name` (String) Bucket name in the storage provider (e.g. the S3 bucket name).
-- `secret_access_key` (String, Sensitive) Secret access key used to reach the bucket (write-only; never returned by the API).
 
 ### Optional
 
+- `access_key_id` (String, Sensitive) Access key ID used to reach the bucket (write-only; never returned by the API). Exactly one of `access_key_id` or `role_arn` must be set; requires `secret_access_key`.
 - `endpoint` (String) Custom S3-compatible endpoint URL; leave unset for AWS S3. Removing it forces a new bucket.
 - `region` (String) Bucket region (e.g. `eu-west-1`). Removing it forces a new bucket.
+- `role_arn` (String) IAM role ARN that Altertable assumes to reach the bucket (e.g. `arn:aws:iam::123456789012:role/altertable`). AWS S3 only: requires `region` and conflicts with `endpoint`. The role's trust policy must allow Altertable with the external ID `altertable-<organization_id>`. Exactly one of `access_key_id` or `role_arn` must be set.
+- `secret_access_key` (String, Sensitive) Secret access key used to reach the bucket (write-only; never returned by the API). Requires `access_key_id`.
 
 ### Read-Only
 
